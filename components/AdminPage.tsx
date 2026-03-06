@@ -326,7 +326,7 @@ CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType T
                        </div>
                    )}
 
-                   {activeTab === 'analytics' && (
+                  {activeTab === 'analytics' && (
                        <div className="space-y-10">
                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                {[
@@ -371,7 +371,65 @@ CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType T
                                        )}
                                    </div>
                                </div>
-                           </div>
+                          </div>
+                       </div>
+                   )}
+
+                   {activeTab === 'bookings' && (
+                       <div className="bg-white border border-gray-100 rounded-[2.5rem] overflow-hidden">
+                           <table className="w-full text-left">
+                               <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400">
+                                   <tr>
+                                       <th className="p-6">Booking ID</th>
+                                       <th className="p-6">Visitor</th>
+                                       <th className="p-6">Visit Date</th>
+                                       <th className="p-6">Tickets</th>
+                                       <th className="p-6">Total</th>
+                                       <th className="p-6">Status</th>
+                                   </tr>
+                               </thead>
+                               <tbody className="divide-y divide-gray-50">
+                                   {bookings.map(booking => (
+                                       <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors group">
+                                           <td className="p-6 font-mono text-[10px] font-bold">{booking.id}</td>
+                                           <td className="p-6">
+                                               <p className="text-sm font-bold">{booking.customerName}</p>
+                                               <p className="text-[10px] text-gray-400">{booking.email}</p>
+                                           </td>
+                                           <td className="p-6">
+                                               <p className="text-sm font-bold">
+                                                   {new Date(booking.date).toLocaleDateString()}
+                                               </p>
+                                               <p className="text-[10px] text-gray-400 font-mono">
+                                                   {new Date(booking.timestamp).toLocaleTimeString()}
+                                               </p>
+                                           </td>
+                                           <td className="p-6 text-sm">
+                                               <p className="font-bold">
+                                                   {booking.tickets.adult} Adult
+                                                   {booking.tickets.student > 0 && ` • ${booking.tickets.student} Student`}
+                                                   {booking.tickets.child > 0 && ` • ${booking.tickets.child} Child`}
+                                               </p>
+                                           </td>
+                                           <td className="p-6 font-black">
+                                               ₹{booking.totalAmount.toLocaleString()}
+                                           </td>
+                                           <td className="p-6">
+                                               <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700">
+                                                   {booking.status || 'Confirmed'}
+                                               </span>
+                                           </td>
+                                       </tr>
+                                   ))}
+                                   {bookings.length === 0 && (
+                                       <tr>
+                                           <td className="p-10 text-center text-xs text-gray-400 font-bold uppercase tracking-widest" colSpan={6}>
+                                               No bookings found yet.
+                                           </td>
+                                       </tr>
+                                   )}
+                               </tbody>
+                           </table>
                        </div>
                    )}
 
