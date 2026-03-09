@@ -96,6 +96,14 @@ export interface GalleryImage {
   description: string;
 }
 
+export interface PressRelease {
+  id: string;
+  title: string;
+  date: string;
+  summary: string;
+  url: string;
+}
+
 export interface PageAssets {
   about: {
     hero: string;

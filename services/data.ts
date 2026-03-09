@@ -8,6 +8,7 @@ import {
   ShopOrder,
   PageAssets,
   GalleryImage,
+  PressRelease,
 } from '../types';
 import {
   EXHIBITIONS,
@@ -47,6 +48,7 @@ const STORAGE_KEYS = {
   BOOKINGS: 'MOCA_BOOKINGS',
   ORDERS: 'MOCA_ORDERS',
   GALLERY_IMAGES: 'MOCA_GALLERY_IMAGES',
+  PRESS_RELEASES: 'MOCA_PRESS_RELEASES',
 };
 
 /* ================================
@@ -101,6 +103,10 @@ export const bootstrapMuseumData = async () => {
   // Initialize gallery images if not present
   if (!localStorage.getItem(STORAGE_KEYS.GALLERY_IMAGES))
     setLocal(STORAGE_KEYS.GALLERY_IMAGES, [], false);
+
+  // Initialize press releases if not present
+  if (!localStorage.getItem(STORAGE_KEYS.PRESS_RELEASES))
+    setLocal(STORAGE_KEYS.PRESS_RELEASES, [], false);
 };
 
 /* ================================
@@ -332,4 +338,13 @@ export const getHomepageGallery = async () => {
 
   return tracks;
 };
+
+export const getPressReleases = () =>
+  syncGet<PressRelease[]>('press_releases', STORAGE_KEYS.PRESS_RELEASES, []);
+
+export const savePressRelease = (press: PressRelease) =>
+  syncUpsert('press_releases', STORAGE_KEYS.PRESS_RELEASES, press);
+
+export const deletePressRelease = (id: string) =>
+  syncDelete('press_releases', STORAGE_KEYS.PRESS_RELEASES, id);
 

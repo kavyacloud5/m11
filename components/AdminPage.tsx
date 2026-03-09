@@ -11,11 +11,12 @@ import {
     getCollectables, deleteCollectable, saveCollectable,
     getBookings, getShopOrders, updateOrderStatus,
     getDashboardAnalytics, checkDatabaseConnection,
-    getGalleryImages, saveGalleryImage, deleteGalleryImage
+    getGalleryImages, saveGalleryImage, deleteGalleryImage,
+    getPressReleases, savePressRelease, deletePressRelease
 } from '../services/data';
-import { Collectable, Booking, ShopOrder, GalleryImage } from '../types';
+import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../types';
 
-type Tab = 'analytics' | 'orders' | 'bookings' | 'inventory' | 'system' | 'gallery';
+type Tab = 'analytics' | 'orders' | 'bookings' | 'inventory' | 'system' | 'gallery' | 'press';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -27,12 +28,14 @@ const AdminPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [inventory, setInventory] = useState<Collectable[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [pressReleases, setPressReleases] = useState<PressRelease[]>([]);
   const [dbStatus, setDbStatus] = useState<any>(null);
   
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [editItem, setEditItem] = useState<any>(null); // Can be Collectable or GalleryImage
   const [editGalleryImage, setEditGalleryImage] = useState<GalleryImage | null>(null);
+  const [editPressRelease, setEditPressRelease] = useState<PressRelease | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   
@@ -59,14 +62,15 @@ useEffect(() => {
   const fetchAdminData = async () => {
       setLoading(true);
       try {
-          const [stats, ord, bks, inv, gallery] = await Promise.all([
-              getDashboardAnalytics(), getShopOrders(), getBookings(), getCollectables(), getGalleryImages()
+          const [stats, ord, bks, inv, gallery, press] = await Promise.all([
+              getDashboardAnalytics(), getShopOrders(), getBookings(), getCollectables(), getGalleryImages(), getPressReleases()
       ]);
       setAnalytics(stats);
       setOrders(ord);
       setBookings(bks);
       setInventory(inv);
           setGalleryImages(gallery);
+          setPressReleases(press);
       } catch (error) {
           console.error("Failed to fetch admin data:", error);
           // Optionally, show an error message to the user
@@ -161,7 +165,8 @@ CREATE TABLE IF NOT EXISTS collectables (id TEXT PRIMARY KEY, name TEXT, price N
 CREATE TABLE IF NOT EXISTS exhibitions (id TEXT PRIMARY KEY, title TEXT, dateRange TEXT, description TEXT, imageUrl TEXT, category TEXT);
 CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, customerName TEXT, email TEXT, date TEXT, tickets JSONB, totalAmount NUMERIC, timestamp BIGINT, status TEXT);
 CREATE TABLE IF NOT EXISTS shop_orders (id TEXT PRIMARY KEY, customerName TEXT, email TEXT, items JSONB, totalAmount NUMERIC, timestamp BIGINT, status TEXT);
-CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType TEXT, userName TEXT, rating INTEGER, comment TEXT, timestamp BIGINT);`;
+CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType TEXT, userName TEXT, rating INTEGER, comment TEXT, timestamp BIGINT);
+CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date TEXT, summary TEXT, url TEXT, timestamp BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000);`;
 
   const copySql = () => {
       navigator.clipboard.writeText(sqlSchema);
@@ -203,6 +208,7 @@ CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType T
                    { id: 'bookings', icon: Calendar, label: 'Ticket Registry' },
                    { id: 'inventory', icon: Tag, label: 'Products' },
                    { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
+                   { id: 'press', icon: Info, label: 'Press' },
                    { id: 'system', icon: Database, label: 'System' },
                ].map(item => (
                    <button 
@@ -533,6 +539,83 @@ CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType T
                            </button>
                        </div>
                    )}
+
+                   {activeTab === 'press' && (
+                       <div className="space-y-8">
+                           <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                                   <div>
+                                       <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                                           <Info className="w-5 h-5" /> Press Releases
+                                       </h3>
+                                       <p className="text-xs text-gray-500 mt-1">
+                                           Upload official museum announcements for journalists and partners.
+                                       </p>
+                                   </div>
+                                   <button
+                                       onClick={() =>
+                                           setEditPressRelease({
+                                               id: `press-${Date.now()}`,
+                                               title: '',
+                                               date: new Date().toISOString().slice(0, 10),
+                                               summary: '',
+                                               url: '',
+                                           })
+                                       }
+                                       className="bg-black text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-gray-800"
+                                   >
+                                       <Plus className="w-4 h-4" /> Add Press Release
+                                   </button>
+                               </div>
+                               <div className="space-y-4">
+                                   {pressReleases.map((press) => (
+                                       <div
+                                           key={press.id}
+                                           className="border border-gray-100 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:bg-gray-50 transition-colors"
+                                       >
+                                           <div className="space-y-1">
+                                               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                   {new Date(press.date).toLocaleDateString()}
+                                               </p>
+                                               <h4 className="text-base md:text-lg font-bold">{press.title}</h4>
+                                               <p className="text-xs text-gray-500 line-clamp-2">{press.summary}</p>
+                                               {press.url && (
+                                                   <a
+                                                       href={press.url}
+                                                       target="_blank"
+                                                       rel="noopener noreferrer"
+                                                       className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-black mt-1"
+                                                   >
+                                                       View Link
+                                                       <ChevronRight className="w-3 h-3" />
+                                                   </a>
+                                               )}
+                                           </div>
+                                           <div className="flex gap-2 md:flex-col">
+                                               <button
+                                                   onClick={() => setEditPressRelease(press)}
+                                                   className="flex-1 md:flex-none bg-gray-50 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-black hover:text-white transition-all"
+                                               >
+                                                   Edit
+                                               </button>
+                                               <button
+                                                   onClick={() => deletePressRelease(press.id).then(fetchAdminData)}
+                                                   className="flex-1 md:flex-none px-4 py-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase"
+                                               >
+                                                   Delete
+                                               </button>
+                                           </div>
+                                       </div>
+                                   ))}
+                                   {pressReleases.length === 0 && (
+                                       <div className="py-12 text-center text-gray-400 text-xs font-bold uppercase tracking-widest">
+                                           No press releases uploaded yet.
+                                       </div>
+                                   )}
+                               </div>
+                           </div>
+                       </div>
+                   )}
                </div>
            )}
        </main>
@@ -668,6 +751,101 @@ CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType T
                        
                        <button type="submit" disabled={isSyncing} className="w-full bg-black text-white py-5 rounded-xl font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-xl">
                            {isSyncing ? <RefreshCw className="animate-spin w-5 h-5" /> : <Check className="w-5 h-5" />} Save Gallery Image
+                       </button>
+                   </form>
+               </div>
+           </div>
+       )}
+
+       {editPressRelease && (
+           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 overflow-y-auto">
+               <div className="bg-white max-w-lg w-full rounded-[2.5rem] p-10 md:p-12 animate-in zoom-in-95 duration-300 my-8">
+                   <div className="flex justify-between items-center mb-10">
+                       <h3 className="text-2xl font-black uppercase tracking-tighter">Press Release</h3>
+                       <button onClick={() => setEditPressRelease(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                           <X className="w-6 h-6" />
+                       </button>
+                   </div>
+                   <form
+                       onSubmit={async (e) => {
+                           e.preventDefault();
+                           if (!editPressRelease) return;
+                           setIsSyncing(true);
+                           await savePressRelease(editPressRelease);
+                           setEditPressRelease(null);
+                           fetchAdminData();
+                           setIsSyncing(false);
+                       }}
+                       className="space-y-6"
+                   >
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Title</label>
+                           <input
+                               required
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               value={editPressRelease.title}
+                               onChange={(e) =>
+                                   setEditPressRelease({
+                                       ...(editPressRelease as PressRelease),
+                                       title: e.target.value,
+                                   })
+                               }
+                           />
+                       </div>
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Date</label>
+                           <input
+                               type="date"
+                               required
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               value={editPressRelease.date}
+                               onChange={(e) =>
+                                   setEditPressRelease({
+                                       ...(editPressRelease as PressRelease),
+                                       date: e.target.value,
+                                   })
+                               }
+                           />
+                       </div>
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Summary</label>
+                           <textarea
+                               required
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black min-h-[100px]"
+                               value={editPressRelease.summary}
+                               onChange={(e) =>
+                                   setEditPressRelease({
+                                       ...(editPressRelease as PressRelease),
+                                       summary: e.target.value,
+                                   })
+                               }
+                           />
+                       </div>
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">
+                               Link to PDF or Article
+                           </label>
+                           <input
+                               type="url"
+                               required
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               placeholder="https://..."
+                               value={editPressRelease.url}
+                               onChange={(e) =>
+                                   setEditPressRelease({
+                                       ...(editPressRelease as PressRelease),
+                                       url: e.target.value,
+                                   })
+                               }
+                           />
+                       </div>
+                       <button
+                           type="submit"
+                           disabled={isSyncing}
+                           className="w-full bg-black text-white py-5 rounded-xl font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-xl"
+                       >
+                           {isSyncing ? <RefreshCw className="animate-spin w-5 h-5" /> : <Check className="w-5 h-5" />}{' '}
+                           Save Press Release
                        </button>
                    </form>
                </div>
