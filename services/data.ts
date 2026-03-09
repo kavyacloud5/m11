@@ -342,9 +342,51 @@ export const getHomepageGallery = async () => {
 export const getPressReleases = () =>
   syncGet<PressRelease[]>('press_releases', STORAGE_KEYS.PRESS_RELEASES, []);
 
-export const savePressRelease = (press: PressRelease) =>
-  syncUpsert('press_releases', STORAGE_KEYS.PRESS_RELEASES, press);
+// Press releases are often managed locally first; never rollback local
+// data if the Supabase table is missing or write fails.
+export const savePressRelease = async (press: PressRelease) => {
+  const originalList = getLocal<PressRelease[]>(
+    STORAGE_KEYS.PRESS_RELEASES,
+    []
+  );
+  const list = [...originalList];
+  const index = list.findIndex((p) => p.id === press.id);
+  index > -1 ? (list[index] = press) : list.unshift(press);
+  // Always persist locally and notify listeners
+  setLocal(STORAGE_KEYS.PRESS_RELEASES, list);
 
-export const deletePressRelease = (id: string) =>
-  syncDelete('press_releases', STORAGE_KEYS.PRESS_RELEASES, id);
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('press_releases').upsert(press);
+      if (error) {
+        console.error('[DB WRITE] press_releases', error);
+      }
+    } catch (err) {
+      console.error('[NETWORK WRITE] press_releases', err);
+    }
+  }
+};
+
+export const deletePressRelease = async (id: string) => {
+  const originalList = getLocal<PressRelease[]>(
+    STORAGE_KEYS.PRESS_RELEASES,
+    []
+  );
+  const list = originalList.filter((p) => p.id !== id);
+  setLocal(STORAGE_KEYS.PRESS_RELEASES, list);
+
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('press_releases')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        console.error('[DB DELETE] press_releases', error);
+      }
+    } catch (err) {
+      console.error('[NETWORK DELETE] press_releases', err);
+    }
+  }
+};
 
