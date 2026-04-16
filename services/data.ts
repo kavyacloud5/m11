@@ -8,6 +8,7 @@ import {
   PageAssets,
   GalleryImage,
   PressRelease,
+  Review,
 } from '../types';
 
 import {
@@ -266,6 +267,13 @@ export const getEvents = () =>
     []
   );
 
+export const getPageAssets = () =>
+  syncGet<PageAssets>(
+    '/page-assets',
+    STORAGE_KEYS.PAGE_ASSETS,
+    DEFAULT_ASSETS
+  );
+
 export const getBookings = () =>
   syncGet<Booking[]>(
     '/bookings',
@@ -312,6 +320,68 @@ export const saveShopOrder = async (
   }
 };
 
+export const updateOrderStatus = async (
+  id: string,
+  status: ShopOrder['status']
+) => {
+  const originalList = getLocal<ShopOrder[]>(
+    STORAGE_KEYS.ORDERS,
+    []
+  );
+
+  const nextList = originalList.map((order) =>
+    order.id === id ? { ...order, status } : order
+  );
+  setLocal(STORAGE_KEYS.ORDERS, nextList);
+
+  try {
+    await apiRequest(`/shop-orders/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  } catch (error) {
+    console.error('[API PATCH] /shop-orders', error);
+    setLocal(STORAGE_KEYS.ORDERS, originalList);
+  }
+};
+
+export const getDashboardAnalytics = async () => {
+  const [orders, bookings] = await Promise.all([
+    getShopOrders(),
+    getBookings(),
+  ]);
+
+  const orderRevenue = orders.reduce(
+    (sum, order) => sum + (order.totalAmount || 0),
+    0
+  );
+  const bookingRevenue = bookings.reduce(
+    (sum, booking) => sum + (booking.totalAmount || 0),
+    0
+  );
+  const totalTickets = bookings.reduce(
+    (sum, booking) =>
+      sum +
+      (booking.tickets?.adult || 0) +
+      (booking.tickets?.student || 0) +
+      (booking.tickets?.child || 0),
+    0
+  );
+  const recentActivity = [...orders, ...bookings]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 10);
+
+  return {
+    totalRevenue: orderRevenue + bookingRevenue,
+    totalTickets,
+    orderCount: orders.length,
+    recentActivity,
+  };
+};
+
+export const getStaffMode = async () =>
+  localStorage.getItem('MOCA_STAFF_MODE') === 'true';
+
 /* ================================
    GALLERY
 ================================ */
@@ -322,6 +392,38 @@ export const getGalleryImages = () =>
     STORAGE_KEYS.GALLERY_IMAGES,
     []
   );
+
+export const getHomepageGallery = async () => {
+  const savedImages = await getGalleryImages();
+  const fallbackImages: GalleryImage[] = [
+    ...EXHIBITIONS.map((item) => ({
+      id: `hx-${item.id}`,
+      imageUrl: item.imageUrl,
+      title: item.title,
+      description: item.description,
+    })),
+    ...ARTWORKS.map((item) => ({
+      id: `ha-${item.id}`,
+      imageUrl: item.imageUrl,
+      title: item.title,
+      description: `${item.artist} • ${item.year}`,
+    })),
+  ];
+
+  const images =
+    savedImages.length > 0
+      ? savedImages
+      : fallbackImages.slice(0, 8);
+
+  return [
+    { speed: 0.08, direction: 1, images },
+    {
+      speed: 0.12,
+      direction: -1,
+      images: [...images].reverse(),
+    },
+  ];
+};
 
 export const saveGalleryImage = (
   image: GalleryImage
@@ -370,3 +472,35 @@ export const deletePressRelease = async (
     STORAGE_KEYS.PRESS_RELEASES,
     id
   );
+
+export const getReviews = async (
+  itemId: string
+): Promise<Review[]> => {
+  const reviews = getLocal<Review[]>(
+    STORAGE_KEYS.REVIEWS,
+    []
+  );
+
+  return reviews
+    .filter((review) => review.itemId === itemId)
+    .sort((a, b) => b.timestamp - a.timestamp);
+};
+
+export const addReview = async (review: Review) => {
+  const originalReviews = getLocal<Review[]>(
+    STORAGE_KEYS.REVIEWS,
+    []
+  );
+  const nextReviews = [review, ...originalReviews];
+  setLocal(STORAGE_KEYS.REVIEWS, nextReviews);
+
+  try {
+    await apiRequest('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(review),
+    });
+  } catch (error) {
+    console.error('[API WRITE] /reviews', error);
+    setLocal(STORAGE_KEYS.REVIEWS, originalReviews);
+  }
+};

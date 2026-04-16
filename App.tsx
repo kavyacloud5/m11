@@ -1,21 +1,21 @@
 
 import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Header from './api/components/Header.tsx';
-import Hero from './api/components/Hero';
-import ShopHighlights from './api/components/ShopHighlights';
-import VisitInfo from './api/components/VisitInfo';
-import Footer from './api/components/Footer';
-import LoadingScreen from './api/components/LoadingScreen';
-import BookingPage from './api/components/BookingPage';
-import CollectablesPage from './api/components/CollectablesPage';
-import OrderStatusPage from './api/components/OrderStatusPage';
-import AdminPage from './api/components/AdminPage';
-import PressPage from './api/components/PressPage';
-import GalleryPage from './api/components/GalleryPage';
-import VideoTestimonialsPage from './api/components/VideoTestimonialsPage';
-import MuseumGalleryScroll from './api/components/MuseumGalleryScroll';
-import CuratorChat from './api/components/CuratorChat';
+import Header from './components/Header.tsx';
+import Hero from './components/Hero';
+import ShopHighlights from './components/ShopHighlights';
+import VisitInfo from './components/VisitInfo';
+import Footer from './components/Footer';
+import LoadingScreen from './components/LoadingScreen';
+import BookingPage from './components/BookingPage';
+import CollectablesPage from './components/CollectablesPage';
+import OrderStatusPage from './components/OrderStatusPage';
+import AdminPage from './components/AdminPage';
+import PressPage from './components/PressPage';
+import GalleryPage from './components/GalleryPage';
+import VideoTestimonialsPage from './components/VideoTestimonialsPage';
+import MuseumGalleryScroll from './components/MuseumGalleryScroll';
+import CuratorChat from './components/CuratorChat';
 import { DataProvider } from './services/DataContext';
 
 const ScrollToTop = () => {
