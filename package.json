@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
-    "@supabase/supabase-js": "^2.39.7",
     "@vercel/node": "^3.0.0",
     "html2canvas": "1.4.1",
     "lucide-react": "^0.555.0",

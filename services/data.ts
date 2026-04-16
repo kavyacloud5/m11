@@ -1,4 +1,3 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   Collectable,
   Exhibition,
@@ -16,27 +15,14 @@ import {
   DEFAULT_ASSETS,
 } from './mockData';
 import { COLLECTABLES } from '../constants';
-/* ================================
-   ENV (VITE ONLY)
-================== */
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 /* ================================
-   SUPABASE CLIENT
+   API BASE URL
 ================================ */
-export const supabase: SupabaseClient | null =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+const API_BASE = '/api/data';
 
-
-console.log("Supabase init check:");
-console.log("VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
-console.log("VITE_SUPABASE_ANON_KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY ? "present (hidden)" : "MISSING");
-console.log("supabase client:", supabase ? "CREATED" : "NULL - local mode active");
 /* ================================
-   STORAGE KEYS
+   LOCAL STORAGE KEYS
 ================================ */
 const STORAGE_KEYS = {
   COLLECTABLES: 'MOCA_COLLECTABLES',
@@ -69,79 +55,41 @@ const setLocal = (key: string, data: any, dispatchEvent: boolean = true) => {
 };
 
 /* ================================
-   CONNECTION STATUS (USED BY UI)
+   API HELPERS
 ================================ */
-export const checkDatabaseConnection = () => ({
-  isConnected: !!supabase,
-  mode: supabase ? 'LIVE CLOUD' : 'LOCAL MIRROR',
-  url: supabase ? 'CONNECTED' : 'NOT_CONFIGURED',
-  timestamp: Date.now(),
-});
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  });
 
-/* ================================
-   INITIAL BOOTSTRAP
-================================ */
-export const bootstrapMuseumData = async () => {
-  // Only initialize collectables if Supabase is not connected (fallback mode)
-  // Otherwise, products should only come from Supabase/admin panel
-  if (!supabase && !localStorage.getItem(STORAGE_KEYS.COLLECTABLES)) {
-    setLocal(STORAGE_KEYS.COLLECTABLES, COLLECTABLES, false);
-  } else if (supabase && !localStorage.getItem(STORAGE_KEYS.COLLECTABLES)) {
-    // Initialize with empty array if Supabase is connected - products will come from Supabase
-    setLocal(STORAGE_KEYS.COLLECTABLES, [], false);
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.statusText}`);
   }
 
-  if (!localStorage.getItem(STORAGE_KEYS.EXHIBITIONS))
-    setLocal(STORAGE_KEYS.EXHIBITIONS, EXHIBITIONS, false);
-
-  if (!localStorage.getItem(STORAGE_KEYS.ARTWORKS))
-    setLocal(STORAGE_KEYS.ARTWORKS, ARTWORKS, false);
-
-  if (!localStorage.getItem(STORAGE_KEYS.PAGE_ASSETS))
-    setLocal(STORAGE_KEYS.PAGE_ASSETS, DEFAULT_ASSETS, false);
-
-  // Initialize gallery images if not present
-  if (!localStorage.getItem(STORAGE_KEYS.GALLERY_IMAGES))
-    setLocal(STORAGE_KEYS.GALLERY_IMAGES, [], false);
-
-  // Initialize press releases if not present
-  if (!localStorage.getItem(STORAGE_KEYS.PRESS_RELEASES))
-    setLocal(STORAGE_KEYS.PRESS_RELEASES, [], false);
+  return response.json();
 };
 
-/* ================================
-   SYNC HELPERS
-================================ */
 const syncGet = async <T>(
-  table: string,
+  endpoint: string,
   storageKey: string,
   fallback: T
 ): Promise<T> => {
-  // ⏱ timeout protection
-  const timeout = new Promise<null>((resolve) =>
-    setTimeout(() => resolve(null), 3000)
-  );
-
-  if (supabase) {
-    try {
-      const query = supabase.from(table).select('*');
-      const result = await Promise.race([query, timeout]);
-
-      if (result && 'data' in result && result.data) {
-        setLocal(storageKey, result.data, false);
-        return result.data as T;
-      }
-    } catch (err) {
-      console.warn(`[SYNC FALLBACK] ${table}`, err);
-    }
+  try {
+    const data = await apiRequest(endpoint);
+    setLocal(storageKey, data, false);
+    return data as T;
+  } catch (error) {
+    console.warn(`[API FALLBACK] ${endpoint}`, error);
+    return getLocal(storageKey, fallback);
   }
-
-  // ✅ ALWAYS FALL BACK
-  return getLocal(storageKey, fallback);
 };
 
 const syncUpsert = async (
-  table: string,
+  endpoint: string,
   storageKey: string,
   item: any,
   idField = 'id'
@@ -152,26 +100,19 @@ const syncUpsert = async (
   index > -1 ? (list[index] = item) : list.unshift(item);
   setLocal(storageKey, list);
 
-  if (supabase) {
-    try {
-      const { error } = await supabase.from(table).upsert(item);
-      if (error) {
-        console.error(`[DB WRITE] ${table}`, error);
-        setLocal(storageKey, originalList); // Rollback local state
-        // TODO: Show a toast or other user feedback for DB write failure
-      }
-    } catch (err) {
-      console.error(`[NETWORK WRITE] ${table}`, err);
-      setLocal(storageKey, originalList); // Rollback local state
-      // TODO: Show a toast or other user feedback for network error
-    } finally {
-      // Ensure loading states are cleared if implemented in UI
-    }
+  try {
+    await apiRequest(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
+  } catch (error) {
+    console.error(`[API WRITE] ${endpoint}`, error);
+    setLocal(storageKey, originalList); // Rollback local state
   }
 };
 
 const syncDelete = async (
-  table: string,
+  endpoint: string,
   storageKey: string,
   id: string
 ) => {
@@ -181,22 +122,48 @@ const syncDelete = async (
     originalList.filter((i) => i.id !== id)
   );
 
-  if (supabase) {
-    try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      if (error) {
-        console.error(`[DB DELETE] ${table}`, error);
-        setLocal(storageKey, originalList); // Rollback local state
-        // TODO: Show a toast or other user feedback for DB delete failure
-      }
-    } catch (err) {
-      console.error(`[NETWORK DELETE] ${table}`, err);
-      setLocal(storageKey, originalList); // Rollback local state
-      // TODO: Show a toast or other user feedback for network error
-    } finally {
-      // Ensure loading states are cleared if implemented in UI
-    }
+  try {
+    await apiRequest(`${endpoint}/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error(`[API DELETE] ${endpoint}`, error);
+    setLocal(storageKey, originalList); // Rollback local state
   }
+};
+
+/* ================================
+   CONNECTION STATUS (USED BY UI)
+================================ */
+export const checkDatabaseConnection = () => ({
+  isConnected: true, // Always connected to our API
+  mode: 'LIVE API',
+  url: 'CONNECTED',
+  timestamp: Date.now(),
+});
+
+/* ================================
+   INITIAL BOOTSTRAP
+================================ */
+export const bootstrapMuseumData = async () => {
+  // Initialize with local data as fallback
+  if (!localStorage.getItem(STORAGE_KEYS.EXHIBITIONS))
+    setLocal(STORAGE_KEYS.EXHIBITIONS, EXHIBITIONS, false);
+
+  if (!localStorage.getItem(STORAGE_KEYS.ARTWORKS))
+    setLocal(STORAGE_KEYS.ARTWORKS, ARTWORKS, false);
+
+  if (!localStorage.getItem(STORAGE_KEYS.COLLECTABLES))
+    setLocal(STORAGE_KEYS.COLLECTABLES, COLLECTABLES, false);
+
+  if (!localStorage.getItem(STORAGE_KEYS.PAGE_ASSETS))
+    setLocal(STORAGE_KEYS.PAGE_ASSETS, DEFAULT_ASSETS, false);
+
+  if (!localStorage.getItem(STORAGE_KEYS.GALLERY_IMAGES))
+    setLocal(STORAGE_KEYS.GALLERY_IMAGES, [], false);
+
+  if (!localStorage.getItem(STORAGE_KEYS.PRESS_RELEASES))
+    setLocal(STORAGE_KEYS.PRESS_RELEASES, [], false);
 };
 
 /* ================================
@@ -204,35 +171,31 @@ const syncDelete = async (
 ================================ */
 
 export const getExhibitions = () =>
-  syncGet<Exhibition[]>('exhibitions', STORAGE_KEYS.EXHIBITIONS, EXHIBITIONS);
+  syncGet<Exhibition[]>('/exhibitions', STORAGE_KEYS.EXHIBITIONS, EXHIBITIONS);
 
 export const saveExhibition = (ex: Exhibition) =>
-  syncUpsert('exhibitions', STORAGE_KEYS.EXHIBITIONS, ex);
+  syncUpsert('/exhibitions', STORAGE_KEYS.EXHIBITIONS, ex);
 
 export const getArtworks = () =>
-  syncGet<Artwork[]>('artworks', STORAGE_KEYS.ARTWORKS, ARTWORKS);
+  syncGet<Artwork[]>('/artworks', STORAGE_KEYS.ARTWORKS, ARTWORKS);
 
-export const getCollectables = () => {
-  // If Supabase is connected, use empty array as fallback (products should come from Supabase)
-  // Otherwise, use hardcoded COLLECTABLES as fallback
-  const fallback = supabase ? [] : COLLECTABLES;
-  return syncGet<Collectable[]>('collectables', STORAGE_KEYS.COLLECTABLES, fallback);
-};
+export const getCollectables = () =>
+  syncGet<Collectable[]>('/collectables', STORAGE_KEYS.COLLECTABLES, COLLECTABLES);
 
 export const saveCollectable = (c: Collectable) =>
-  syncUpsert('collectables', STORAGE_KEYS.COLLECTABLES, c);
+  syncUpsert('/collectables', STORAGE_KEYS.COLLECTABLES, c);
 
 export const deleteCollectable = (id: string) =>
-  syncDelete('collectables', STORAGE_KEYS.COLLECTABLES, id);
+  syncDelete('/collectables', STORAGE_KEYS.COLLECTABLES, id);
 
 export const getEvents = () =>
-  syncGet<Event[]>('events', STORAGE_KEYS.EVENTS, []);
+  syncGet<Event[]>('/events', STORAGE_KEYS.EVENTS, []);
 
 export const getBookings = () =>
-  syncGet<Booking[]>('bookings', STORAGE_KEYS.BOOKINGS, []);
+  syncGet<Booking[]>('/bookings', STORAGE_KEYS.BOOKINGS, []);
 
 export const saveBooking = (b: Booking) =>
-  syncUpsert('bookings', STORAGE_KEYS.BOOKINGS, b);
+  syncUpsert('/bookings', STORAGE_KEYS.BOOKINGS, b);
 
 export const updateOrderStatus = async (
   orderId: string,
@@ -243,15 +206,15 @@ export const updateOrderStatus = async (
 
   if (orderToUpdate) {
     const updatedOrder = { ...orderToUpdate, status };
-    await syncUpsert('shop_orders', STORAGE_KEYS.ORDERS, updatedOrder);
+    await syncUpsert('/shop-orders', STORAGE_KEYS.ORDERS, updatedOrder);
   }
 };
 
 export const getShopOrders = () =>
-  syncGet<ShopOrder[]>('shop_orders', STORAGE_KEYS.ORDERS, []);
+  syncGet<ShopOrder[]>('/shop-orders', STORAGE_KEYS.ORDERS, []);
 
 export const saveShopOrder = async (o: ShopOrder) => {
-  await syncUpsert('shop_orders', STORAGE_KEYS.ORDERS, o);
+  await syncUpsert('/shop-orders', STORAGE_KEYS.ORDERS, o);
 
   // Attempt to send order confirmation email via serverless function
   try {
@@ -313,13 +276,13 @@ export const getStaffMode = async () =>
   localStorage.getItem('MOCA_STAFF_MODE') === 'true';
 
 export const getGalleryImages = () =>
-  syncGet<GalleryImage[]>('gallery_images', STORAGE_KEYS.GALLERY_IMAGES, []);
+  syncGet<GalleryImage[]>('/gallery-images', STORAGE_KEYS.GALLERY_IMAGES, []);
 
 export const saveGalleryImage = (image: GalleryImage) =>
-  syncUpsert('gallery_images', STORAGE_KEYS.GALLERY_IMAGES, image);
+  syncUpsert('/gallery-images', STORAGE_KEYS.GALLERY_IMAGES, image);
 
 export const deleteGalleryImage = (id: string) =>
-  syncDelete('gallery_images', STORAGE_KEYS.GALLERY_IMAGES, id);
+  syncDelete('/gallery-images', STORAGE_KEYS.GALLERY_IMAGES, id);
 
 export const getHomepageGallery = async () => {
   const galleryImages = await getGalleryImages();
@@ -340,44 +303,9 @@ export const getHomepageGallery = async () => {
 };
 
 export const getPressReleases = async (): Promise<PressRelease[]> => {
-  const local = getLocal<PressRelease[]>(STORAGE_KEYS.PRESS_RELEASES, []);
-
-  // If no Supabase, always use local data
-  if (!supabase) {
-    return local;
-  }
-
-  // With Supabase, prefer cloud data when it exists,
-  // but don't wipe out local if the table is empty or missing.
-  try {
-    const timeout = new Promise<null>((resolve) =>
-      setTimeout(() => resolve(null), 3000)
-    );
-    const query = supabase.from('press_releases').select('*');
-    const result: any = await Promise.race([query, timeout]);
-
-    if (!result || ('error' in result && result.error)) {
-      console.warn('[SYNC FALLBACK] press_releases', result?.error);
-      return local;
-    }
-
-    const data = (result.data as PressRelease[]) || [];
-
-    if (data.length === 0) {
-      // Keep existing local data as source of truth until cloud has rows
-      return local;
-    }
-
-    setLocal(STORAGE_KEYS.PRESS_RELEASES, data, false);
-    return data;
-  } catch (err) {
-    console.warn('[SYNC FALLBACK] press_releases', err);
-    return local;
-  }
+  return syncGet<PressRelease[]>('/press-releases', STORAGE_KEYS.PRESS_RELEASES, []);
 };
 
-// Press releases are often managed locally first; never rollback local
-// data if the Supabase table is missing or write fails.
 export const savePressRelease = async (press: PressRelease) => {
   const originalList = getLocal<PressRelease[]>(
     STORAGE_KEYS.PRESS_RELEASES,
@@ -389,15 +317,15 @@ export const savePressRelease = async (press: PressRelease) => {
   // Always persist locally and notify listeners
   setLocal(STORAGE_KEYS.PRESS_RELEASES, list);
 
-  if (supabase) {
-    try {
-      const { error } = await supabase.from('press_releases').upsert(press);
-      if (error) {
-        console.error('[DB WRITE] press_releases', error);
-      }
-    } catch (err) {
-      console.error('[NETWORK WRITE] press_releases', err);
-    }
+  try {
+    await apiRequest('/press-releases', {
+      method: 'POST',
+      body: JSON.stringify(press),
+    });
+  } catch (error) {
+    console.error('[API WRITE] press-releases', error);
+  }
+};
   }
 };
 

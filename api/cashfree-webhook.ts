@@ -1,13 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
 
-// Initialize Supabase client for updating order status
-const supabase = process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY
-  ? createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.VITE_SUPABASE_ANON_KEY
-    )
-  : null;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -26,31 +22,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Update order status in Supabase based on payment status
-    if (supabase) {
-      const newStatus = paymentStatus === 'SUCCESS' ? 'Fulfilled' : 'Pending';
-      
-      // Get the existing order
-      const { data: existingOrder, error: fetchError } = await supabase
-        .from('shop_orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
+    // Update order status in database based on payment status
+    const newStatus = paymentStatus === 'SUCCESS' ? 'Fulfilled' : 'Pending';
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = not found
-        console.error('Error fetching order:', fetchError);
-      }
+    // Update order with payment information
+    const result = await pool.query(
+      'UPDATE shop_orders SET status = $1, payment_status = $2, payment_message = $3, payment_time = $4 WHERE id = $5',
+      [newStatus, paymentStatus, paymentMessage, paymentTime, orderId]
+    );
 
-      if (existingOrder) {
-        // Update order with payment information
-        const { error: updateError } = await supabase
-          .from('shop_orders')
-          .update({
-            status: newStatus,
-            payment_status: paymentStatus,
-            payment_message: paymentMessage,
-            payment_time: paymentTime,
-            updated_at: new Date().toISOString(),
+    if (result.rowCount === 0) {
+      console.warn(`Order ${orderId} not found in database`);
+    } else {
+      console.log(`Order ${orderId} updated to status: ${newStatus}`);
+    }
+
+    // Always return 200 to acknowledge receipt of webhook
+    return res.status(200).json({ message: 'Webhook processed successfully' });
+  } catch (error: any) {
+    console.error('Webhook processing error:', error);
+    // Still return 200 to prevent Cashfree from retrying
+    return res.status(200).json({ message: 'Webhook received but processing failed' });
+  }
+}
           })
           .eq('id', orderId);
 
