@@ -8,6 +8,7 @@ import {
   PageAssets,
   GalleryImage,
   PressRelease,
+  Review,
 } from '../types';
 
 import {
@@ -266,6 +267,20 @@ export const getEvents = () =>
     []
   );
 
+export const getPageAssets = () =>
+  syncGet<PageAssets>(
+    '/page-assets',
+    STORAGE_KEYS.PAGE_ASSETS,
+    DEFAULT_ASSETS
+  );
+
+export const getHomepageGallery = () =>
+  syncGet<GalleryImage[]>(
+    '/gallery-images',
+    STORAGE_KEYS.GALLERY_IMAGES,
+    []
+  );
+
 export const getBookings = () =>
   syncGet<Booking[]>(
     '/bookings',
@@ -286,6 +301,20 @@ export const getShopOrders = () =>
     STORAGE_KEYS.ORDERS,
     []
   );
+
+export const updateOrderStatus = async (
+  id: string,
+  status: ShopOrder['status'] | string
+) => {
+  const orders = await getShopOrders();
+  const order = orders.find((o) => o.id === id);
+  if (!order) return;
+
+  await saveShopOrder({
+    ...order,
+    status: status as ShopOrder['status'],
+  });
+};
 
 export const saveShopOrder = async (
   o: ShopOrder
@@ -310,6 +339,42 @@ export const saveShopOrder = async (
       error
     );
   }
+};
+
+export const getDashboardAnalytics = async () => {
+  const [orders, bookings] = await Promise.all([
+    getShopOrders(),
+    getBookings(),
+  ]);
+
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + (order.totalAmount || 0),
+    0
+  );
+  const totalTickets = bookings.reduce((sum, booking) => {
+    const tickets = booking.tickets || {
+      adult: 0,
+      student: 0,
+      child: 0,
+    };
+    return (
+      sum +
+      (tickets.adult || 0) +
+      (tickets.student || 0) +
+      (tickets.child || 0)
+    );
+  }, 0);
+
+  const recentActivity = [...orders, ...bookings]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 10);
+
+  return {
+    totalRevenue,
+    totalTickets,
+    orderCount: orders.length,
+    recentActivity,
+  };
 };
 
 /* ================================
@@ -370,3 +435,26 @@ export const deletePressRelease = async (
     STORAGE_KEYS.PRESS_RELEASES,
     id
   );
+
+export const getReviews = async (
+  itemId: string
+): Promise<Review[]> => {
+  const reviews = getLocal<Review[]>(
+    STORAGE_KEYS.REVIEWS,
+    []
+  );
+  return reviews.filter((review) => review.itemId === itemId);
+};
+
+export const addReview = async (
+  review: Review
+): Promise<void> => {
+  const reviews = getLocal<Review[]>(
+    STORAGE_KEYS.REVIEWS,
+    []
+  );
+  setLocal(STORAGE_KEYS.REVIEWS, [review, ...reviews]);
+};
+
+export const getStaffMode = async (): Promise<boolean> =>
+  localStorage.getItem('MOCA_STAFF_MODE') === 'true';
