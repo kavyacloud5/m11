@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Header from '.components/Header.tsx';
+import Header from './api/components/Header.tsx';
 import Hero from './components/Hero';
 import ShopHighlights from './components/ShopHighlights';
 import VisitInfo from './components/VisitInfo';
