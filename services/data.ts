@@ -333,21 +333,17 @@ export const deletePressRelease = async (id: string) => {
     STORAGE_KEYS.PRESS_RELEASES,
     []
   );
+
   const list = originalList.filter((p) => p.id !== id);
+
   setLocal(STORAGE_KEYS.PRESS_RELEASES, list);
 
-  if (supabase) {
-    try {
-      const { error } = await supabase
-        .from('press_releases')
-        .delete()
-        .eq('id', id);
-      if (error) {
-        console.error('[DB DELETE] press_releases', error);
-      }
-    } catch (err) {
-      console.error('[NETWORK DELETE] press_releases', err);
-    }
+  try {
+    await apiRequest(`/press-releases/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('[API DELETE] press-releases', error);
+    setLocal(STORAGE_KEYS.PRESS_RELEASES, originalList);
   }
 };
-
