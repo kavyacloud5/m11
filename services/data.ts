@@ -326,8 +326,7 @@ export const savePressRelease = async (press: PressRelease) => {
     console.error('[API WRITE] press-releases', error);
   }
 };
-  }
-};
+
 
 export const deletePressRelease = async (id: string) => {
   const originalList = getLocal<PressRelease[]>(
