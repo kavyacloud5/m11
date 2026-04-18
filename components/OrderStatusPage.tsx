@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Package, Calendar, Clock, CheckCircle2, AlertCircle, ShoppingBag } from 'lucide-react';
-import { getShopOrders } from '../../services/data';
-import { ShopOrder } from '../../types';
+import { getShopOrders } from '../services/data';
+import { ShopOrder } from '../types';
 
 const OrderStatusPage: React.FC = () => {
   const [orderId, setOrderId] = useState('');

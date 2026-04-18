@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Star, MessageSquare } from 'lucide-react';
-import { Review } from '../../types';
-import { getReviews, addReview } from '../../services/data';
+import { Review } from '../types';
+import { getReviews, addReview } from '../services/data';
 
 interface ReviewModalProps {
   isOpen: boolean;

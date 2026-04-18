@@ -2,7 +2,7 @@
 import React from 'react';
 import { Clock, MapPin, Ticket, Car, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useMuseumData } from '../../services/DataContext';
+import { useMuseumData } from '../services/DataContext';
 
 const VisitInfo: React.FC = () => {
   const { assets, loading } = useMuseumData();

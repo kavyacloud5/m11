@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText, ExternalLink } from 'lucide-react';
-import { getPressReleases } from '../../services/data';
-import type { PressRelease } from '../../types';
+import { getPressReleases } from '../services/data';
+import type { PressRelease } from '../types';
 
 const PressPage: React.FC = () => {
   const [items, setItems] = useState<PressRelease[]>([]);

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useMuseumData } from '../../services/DataContext';
+import { useMuseumData } from '../services/DataContext';
 
 const CollectionHighlights: React.FC = () => {
   const { artworks, loading } = useMuseumData();

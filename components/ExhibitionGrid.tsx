@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 // FIX: Corrected import from saveExhibitions (plural) to saveExhibition (singular)
-import { saveExhibition, getStaffMode } from '../../services/data';
-import { useMuseumData } from '../../services/DataContext';
+import { saveExhibition, getStaffMode } from '../services/data';
+import { useMuseumData } from '../services/DataContext';
 import { Share2, Settings, ImageIcon, Check } from 'lucide-react';
 
 const ExhibitionGrid: React.FC = () => {

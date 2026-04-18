@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, X, Plus, Minus, Lock, Check, CreditCard, Search, Loader2, ShieldCheck, Clipboard, Camera, Mail, Info, Download } from 'lucide-react';
-import { getCollectables, saveShopOrder } from '../../services/data';
-import { EmailService } from '../../services/email';
-import { Collectable, CartItem } from '../../types';
+import { getCollectables, saveShopOrder } from '../services/data';
+import { EmailService } from '../services/email';
+import { Collectable, CartItem } from '../types';
 
 const CollectablesPage: React.FC = () => {
   const [searchParams] = useSearchParams();

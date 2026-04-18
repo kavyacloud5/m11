@@ -13,8 +13,8 @@ import {
     getDashboardAnalytics, checkDatabaseConnection,
     getGalleryImages, saveGalleryImage, deleteGalleryImage,
     getPressReleases, savePressRelease, deletePressRelease
-} from '../../services/data';
-import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../../types';
+} from '../services/data';
+import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../types';
 
 type Tab = 'analytics' | 'orders' | 'bookings' | 'inventory' | 'system' | 'gallery' | 'press';
 

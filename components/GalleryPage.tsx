@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Image as ImageIcon, X } from 'lucide-react';
-import { getGalleryImages } from '../../services/data';
-import type { GalleryImage } from '../../types';
+import { getGalleryImages } from '../services/data';
+import type { GalleryImage } from '../types';
 
 const GalleryPage: React.FC = () => {
   const [images, setImages] = useState<GalleryImage[]>([]);

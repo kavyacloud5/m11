@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Menu, X, Search, Ticket, ShoppingBag, ChevronRight } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import LogoGeometric from './Logo';
-import { useMuseumData } from '../../services/DataContext';
+import { useMuseumData } from '../services/DataContext';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

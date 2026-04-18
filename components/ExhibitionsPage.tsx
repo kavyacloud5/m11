@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { getExhibitions } from '../../services/data';
-import { Exhibition } from '../../types';
+import { getExhibitions } from '../services/data';
+import { Exhibition } from '../types';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Share2, Star } from 'lucide-react';
 import ReviewModal from './ReviewModal';

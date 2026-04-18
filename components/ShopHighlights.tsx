@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShoppingBag } from 'lucide-react';
-import { getCollectables } from '../../services/data';
-import { Collectable } from '../../types';
+import { getCollectables } from '../services/data';
+import { Collectable } from '../types';
 
 const ShopHighlights: React.FC = () => {
   const [items, setItems] = useState<Collectable[]>([]);
