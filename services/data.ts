@@ -22,7 +22,13 @@ import { COLLECTABLES } from '../constants';
 /* ================================
    API BASE URL
 ================================ */
-const API_BASE = '/api/data';
+const envBackendUrl = (import.meta as any)?.env?.VITE_BACKEND_URL as
+  | string
+  | undefined;
+const API_BASE =
+  envBackendUrl && envBackendUrl.trim().length > 0
+    ? `${envBackendUrl.replace(/\/$/, '')}/api/data`
+    : '/api/data';
 
 /* ================================
    LOCAL STORAGE KEYS
@@ -80,8 +86,11 @@ const apiRequest = async (
   });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
     throw new Error(
-      `API request failed: ${response.statusText}`
+      `API request failed (${response.status}): ${
+        text || response.statusText
+      }`
     );
   }
 
@@ -161,9 +170,15 @@ const syncDelete = async (
    CONNECTION STATUS
 ================================ */
 export const checkDatabaseConnection = () => ({
-  isConnected: true,
-  mode: 'LIVE API',
-  url: 'CONNECTED',
+  isConnected: Boolean(envBackendUrl && envBackendUrl.trim().length > 0),
+  mode:
+    envBackendUrl && envBackendUrl.trim().length > 0
+      ? 'REMOTE API'
+      : 'LOCAL ONLY',
+  url:
+    envBackendUrl && envBackendUrl.trim().length > 0
+      ? envBackendUrl
+      : 'localStorage',
   timestamp: Date.now(),
 });
 
@@ -218,6 +233,16 @@ export const bootstrapMuseumData = async () => {
    API
 ================================ */
 
+export const getStaffMode = async () =>
+  localStorage.getItem('MOCA_STAFF_MODE') === 'true';
+
+export const getPageAssets = () =>
+  syncGet<PageAssets>(
+    '/page-assets',
+    STORAGE_KEYS.PAGE_ASSETS,
+    DEFAULT_ASSETS
+  );
+
 export const getExhibitions = () =>
   syncGet<Exhibition[]>(
     '/exhibitions',
@@ -267,20 +292,6 @@ export const getEvents = () =>
     []
   );
 
-export const getPageAssets = () =>
-  syncGet<PageAssets>(
-    '/page-assets',
-    STORAGE_KEYS.PAGE_ASSETS,
-    DEFAULT_ASSETS
-  );
-
-export const getHomepageGallery = () =>
-  syncGet<GalleryImage[]>(
-    '/gallery-images',
-    STORAGE_KEYS.GALLERY_IMAGES,
-    []
-  );
-
 export const getBookings = () =>
   syncGet<Booking[]>(
     '/bookings',
@@ -304,16 +315,31 @@ export const getShopOrders = () =>
 
 export const updateOrderStatus = async (
   id: string,
-  status: ShopOrder['status'] | string
+  status: ShopOrder['status']
 ) => {
-  const orders = await getShopOrders();
-  const order = orders.find((o) => o.id === id);
-  if (!order) return;
+  const originalList = getLocal<ShopOrder[]>(
+    STORAGE_KEYS.ORDERS,
+    []
+  );
+  setLocal(
+    STORAGE_KEYS.ORDERS,
+    originalList.map((o) =>
+      o.id === id ? { ...o, status } : o
+    )
+  );
 
-  await saveShopOrder({
-    ...order,
-    status: status as ShopOrder['status'],
-  });
+  try {
+    await apiRequest(`/shop-orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  } catch (error) {
+    console.error(
+      '[API WRITE] /shop-orders/:id/status',
+      error
+    );
+    setLocal(STORAGE_KEYS.ORDERS, originalList);
+  }
 };
 
 export const saveShopOrder = async (
@@ -347,26 +373,27 @@ export const getDashboardAnalytics = async () => {
     getBookings(),
   ]);
 
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + (order.totalAmount || 0),
+  const totalRevenue =
+    orders.reduce(
+      (sum, o) => sum + (o.totalAmount || 0),
+      0
+    ) +
+    bookings.reduce(
+      (sum, b) => sum + (b.totalAmount || 0),
+      0
+    );
+
+  const totalTickets = bookings.reduce(
+    (sum, b) =>
+      sum +
+      (b.tickets?.adult || 0) +
+      (b.tickets?.student || 0) +
+      (b.tickets?.child || 0),
     0
   );
-  const totalTickets = bookings.reduce((sum, booking) => {
-    const tickets = booking.tickets || {
-      adult: 0,
-      student: 0,
-      child: 0,
-    };
-    return (
-      sum +
-      (tickets.adult || 0) +
-      (tickets.student || 0) +
-      (tickets.child || 0)
-    );
-  }, 0);
 
   const recentActivity = [...orders, ...bookings]
-    .sort((a, b) => b.timestamp - a.timestamp)
+    .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
     .slice(0, 10);
 
   return {
@@ -406,6 +433,37 @@ export const deleteGalleryImage = (
     id
   );
 
+export const getHomepageGallery = async () => {
+  const images = await getGalleryImages();
+  const safeImages =
+    images && images.length > 0
+      ? images
+      : [
+          {
+            id: 'fallback-1',
+            imageUrl:
+              'https://picsum.photos/800/1000?grayscale',
+            title: 'Gallery',
+            description: 'MOCA',
+          },
+        ];
+
+  const makeTrack = (
+    direction: 1 | -1,
+    speed: number
+  ) => ({
+    direction,
+    speed,
+    images: safeImages,
+  });
+
+  return [
+    makeTrack(1, 0.05),
+    makeTrack(-1, 0.03),
+    makeTrack(1, 0.04),
+  ];
+};
+
 /* ================================
    PRESS RELEASES
 ================================ */
@@ -436,6 +494,10 @@ export const deletePressRelease = async (
     id
   );
 
+/* ================================
+   REVIEWS
+================================ */
+
 export const getReviews = async (
   itemId: string
 ): Promise<Review[]> => {
@@ -455,6 +517,3 @@ export const addReview = async (
   );
   setLocal(STORAGE_KEYS.REVIEWS, [review, ...reviews]);
 };
-
-export const getStaffMode = async (): Promise<boolean> =>
-  localStorage.getItem('MOCA_STAFF_MODE') === 'true';

@@ -4,8 +4,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Check, Mail, Download, Printer, Loader2, CreditCard, ShieldCheck } from 'lucide-react';
 import LogoGeometric from './Logo';
 import html2canvas from 'html2canvas';
-import { saveBooking } from '../services/data';
-import { Booking } from '../types';
+import { saveBooking } from '../../services/data';
+import { Booking } from '../../types';
 
 type Step = 'date' | 'tickets' | 'details' | 'confirmation';
 

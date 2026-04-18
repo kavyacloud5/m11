@@ -13,8 +13,8 @@ import {
     getDashboardAnalytics, checkDatabaseConnection,
     getGalleryImages, saveGalleryImage, deleteGalleryImage,
     getPressReleases, savePressRelease, deletePressRelease
-} from '../services/data';
-import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../types';
+} from '../../services/data';
+import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../../types';
 
 type Tab = 'analytics' | 'orders' | 'bookings' | 'inventory' | 'system' | 'gallery' | 'press';
 
@@ -160,7 +160,7 @@ useEffect(() => {
     }
   };
 
-  const sqlSchema = `-- Run this in your Supabase SQL Editor:
+  const sqlSchema = `-- Run this in your PostgreSQL (Neon) SQL editor:
 CREATE TABLE IF NOT EXISTS collectables (id TEXT PRIMARY KEY, name TEXT, price NUMERIC, category TEXT, imageUrl TEXT, description TEXT, inStock BOOLEAN, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS exhibitions (id TEXT PRIMARY KEY, title TEXT, dateRange TEXT, description TEXT, imageUrl TEXT, category TEXT);
 CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, customerName TEXT, email TEXT, date TEXT, tickets JSONB, totalAmount NUMERIC, timestamp BIGINT, status TEXT);
@@ -279,7 +279,7 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                    {activeTab === 'system' && (
                        <div className="space-y-8 animate-in fade-in duration-500">
                             <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                                <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Globe className="w-6 h-6" /> Supabase Connection</h3>
+                                <h3 className="text-xl font-black mb-8 flex items-center gap-3"><Globe className="w-6 h-6" /> PostgreSQL Connection</h3>
                                 
                                 <div className="grid md:grid-cols-2 gap-8 mb-12">
                                     <div className={`p-8 rounded-3xl border ${dbStatus?.isConnected ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
@@ -290,8 +290,8 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                                         <div className="text-2xl font-black mb-2">{dbStatus?.mode}</div>
                                         <p className="text-xs text-gray-500 leading-relaxed mb-6">
                                             {dbStatus?.isConnected 
-                                              ? 'Your museum is connected to Supabase Cloud. All changes are synchronized globally.'
-                                              : 'The app is running in Local Mirror mode. All data is stored in the browser. To go live, provide SUPABASE_URL in your environment.'}
+                                              ? 'Your museum is connected to the backend API (Neon PostgreSQL). Changes are synchronized globally.'
+                                              : 'The app is running in Local Mirror mode. All data is stored in the browser. To go live, deploy the backend (Render) and set VITE_BACKEND_URL on Vercel.'}
                                         </p>
                                         <div className="text-[9px] font-mono text-gray-400 break-all bg-white/50 p-2 rounded">
                                             ENDPOINT: {dbStatus?.url}
@@ -305,7 +305,7 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                                         </div>
                                         <div className="text-2xl font-black mb-2">HYBRID LINK</div>
                                         <p className="text-xs text-gray-500 leading-relaxed">
-                                            To see updates on your phone, you must provide your Supabase keys. Once connected, your browser will upload its local data to the cloud automatically.
+                                            To see updates on your phone and across staff devices, connect a shared backend API backed by Neon PostgreSQL.
                                         </p>
                                     </div>
                                 </div>
@@ -326,7 +326,7 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                                     <pre className="bg-black text-green-400 p-6 rounded-2xl text-[10px] font-mono overflow-x-auto border-4 border-gray-900 leading-relaxed">
                                         {sqlSchema}
                                     </pre>
-                                    <p className="text-[10px] text-gray-400 italic">Paste this into the Supabase SQL Editor to prepare your tables.</p>
+                                    <p className="text-[10px] text-gray-400 italic">Paste this into your Neon SQL editor to prepare your tables.</p>
                                 </div>
                             </div>
                        </div>

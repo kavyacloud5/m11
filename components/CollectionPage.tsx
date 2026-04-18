@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { getArtworks } from '../services/data';
-import { Artwork } from '../types';
+import { getArtworks } from '../../services/data';
+import { Artwork } from '../../types';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Filter } from 'lucide-react';
 import ReviewModal from './ReviewModal';

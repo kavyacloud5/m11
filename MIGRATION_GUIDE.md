@@ -29,17 +29,32 @@ Update your backend `.env` file with your Neon connection string:
 
 ```
 DATABASE_URL=postgresql://user:password@host/dbname
-JWT_SECRET=your-jwt-secret
-JWT_EXPIRE=7d
 NODE_ENV=development
 PORT=5000
+CORS_ORIGIN=https://your-vercel-domain.vercel.app
+# Optional (protect admin writes)
+# ADMIN_API_KEY=some-long-secret
+
+# Cashfree (optional if creating sessions in backend)
+# CASHFREE_MODE=sandbox
+# CASHFREE_APP_ID=...
+# CASHFREE_SECRET_KEY=...
+# PUBLIC_URL=https://your-render-backend.onrender.com
 ```
 
-### Vercel Environment Variables (for webhooks)
-If you're using Vercel for serverless functions, update these environment variables:
+### Vercel Environment Variables (frontend + serverless)
+If you're using Vercel for the frontend and serverless functions, set:
 
 ```
-DATABASE_URL=postgresql://user:password@host/dbname
+VITE_BACKEND_URL=https://your-render-backend.onrender.com
+
+# Cashfree session creation (used by /api/create-payment-session)
+CASHFREE_MODE=sandbox
+CASHFREE_APP_ID=...
+CASHFREE_SECRET_KEY=...
+
+# Webhook forwarding (used by /api/cashfree-webhook)
+BACKEND_URL=https://your-render-backend.onrender.com
 ```
 
 ## Step 4: Install Dependencies
@@ -80,14 +95,14 @@ If you have existing data in Supabase, you can export it and import it into Neon
 
 ## Step 7: Update Webhooks
 
-The Cashfree webhook has been updated to use direct PostgreSQL queries instead of Supabase. Make sure your Vercel deployment has the correct `DATABASE_URL`.
+The Cashfree webhook is handled in the Render backend (Neon PostgreSQL). The Vercel `api/cashfree-webhook.ts` function forwards the payload to `BACKEND_URL/api/payments/cashfree/webhook`.
 
 ## Key Changes Made
 
 1. **Database Schema**: Created PostgreSQL-compatible schema
 2. **API Endpoints**: Added REST API endpoints in `/routes/data.js`
 3. **Frontend Service**: Updated `services/data.ts` to use API calls instead of Supabase
-4. **Webhook**: Updated `api/cashfree-webhook.ts` to use direct database queries
+4. **Webhook**: Updated `api/cashfree-webhook.ts` to forward to the backend
 5. **Dependencies**: Removed `@supabase/supabase-js` from frontend
 
 ## Troubleshooting

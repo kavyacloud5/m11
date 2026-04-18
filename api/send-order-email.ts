@@ -1,9 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Resend } from 'resend';
-
-// Initialize Resend with the API key from environment variables
-// IMPORTANT: Ensure RESEND_API_KEY is set in your Vercel project environment variables!
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -14,6 +9,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!order || !order.customerName || !order.email || !order.items || !order.totalAmount) {
     return res.status(400).json({ message: 'Missing required order details.' });
+  }
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    return res.status(500).json({
+      message: 'Email service configuration error. Please contact support.',
+    });
   }
 
   try {
@@ -31,16 +33,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       <p>The MOCA Gandhinagar Team</p>
     `;
 
-    const { data, error } = await resend.emails.send({
-      from: 'MOCA Gandhinagar <noreply@mocagandhinagar.org>', // Using your verified domain
-      to: [order.email],
-      subject: `Your MOCA Gandhinagar Order Confirmation #${order.id}`,
-      html: emailContent,
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'MOCA Gandhinagar <noreply@mocagandhinagar.org>',
+        to: [order.email],
+        subject: `Your MOCA Gandhinagar Order Confirmation #${order.id}`,
+        html: emailContent,
+      }),
     });
 
-    if (error) {
-      console.error('Resend email error:', error);
-      return res.status(500).json({ message: 'Failed to send email.', error: error.message });
+    const data = await resendResponse.json().catch(() => null);
+
+    if (!resendResponse.ok) {
+      console.error('Resend email error:', data);
+      return res.status(500).json({
+        message: 'Failed to send email.',
+        error: data?.message || 'Unknown error',
+      });
     }
 
     console.log('Order confirmation email sent:', data);
@@ -50,4 +64,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ message: 'Internal server error.', error: error.message });
   }
 }
-

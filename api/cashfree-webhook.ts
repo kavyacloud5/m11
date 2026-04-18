@@ -1,44 +1,36 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
-  // Verify webhook signature (optional but recommended)
-  // Cashfree sends a signature in headers for verification
-  const signature = req.headers['x-cashfree-signature'];
-  // TODO: Implement signature verification using your webhook secret
-
-  const { orderId, orderAmount, paymentStatus, paymentMessage, paymentTime } = req.body;
-
-  if (!orderId || !paymentStatus) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-
   try {
-    // Update order status in database based on payment status
-    const newStatus = paymentStatus === 'SUCCESS' ? 'Fulfilled' : 'Pending';
+    const signature = req.headers['x-cashfree-signature'];
+    const backendUrl =
+      process.env.BACKEND_URL || process.env.RENDER_BACKEND_URL;
 
-    // Update order with payment information
-    const result = await pool.query(
-      'UPDATE shop_orders SET status = $1, payment_status = $2, payment_message = $3, payment_time = $4 WHERE id = $5',
-      [newStatus, paymentStatus, paymentMessage, paymentTime, orderId]
-    );
+    // Prefer processing the webhook in the Render backend (Neon DB lives there).
+    if (backendUrl) {
+      const forwardUrl = `${backendUrl.replace(/\/$/, '')}/api/payments/cashfree/webhook`;
+      const forwardRes = await fetch(forwardUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(signature ? { 'x-cashfree-signature': String(signature) } : {}),
+        },
+        body: JSON.stringify(req.body),
+      });
 
-    if (result.rowCount === 0) {
-      console.warn(`Order ${orderId} not found in database`);
+      if (!forwardRes.ok) {
+        const text = await forwardRes.text().catch(() => '');
+        console.error('Webhook forward failed:', text);
+      }
     } else {
-      console.log(`Order ${orderId} updated to status: ${newStatus}`);
+      console.log('Cashfree webhook received:', req.body);
     }
 
-    // Always return 200 to acknowledge receipt of webhook
-    return res.status(200).json({ message: 'Webhook processed successfully' });
+    return res.status(200).json({ message: 'Webhook received' });
   } catch (error: any) {
     console.error('Webhook processing error:', error);
     // Still return 200 to prevent Cashfree from retrying

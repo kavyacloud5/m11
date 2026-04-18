@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Target, Heart, Globe } from 'lucide-react';
-import { getPageAssets } from '../services/data';
-import { PageAssets } from '../types';
+import { getPageAssets } from '../../services/data';
+import { PageAssets } from '../../types';
 
 const AboutPage: React.FC = () => {
   const [assets, setAssets] = useState<PageAssets | null>(null);

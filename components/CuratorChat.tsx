@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, X, ArrowUp } from 'lucide-react';
-import { ChatMessage } from '../types';
-import { sendMessageToCurator } from '../services/gemini';
+import { ChatMessage } from '../../types';
+import { sendMessageToCurator } from '../../services/gemini';
 
 const CuratorChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { getHomepageGallery } from '../services/data';
-import { GalleryImage } from '../types';
+import { getHomepageGallery } from '../../services/data';
+import { GalleryImage } from '../../types';
 
 interface Track {
   speed: number;

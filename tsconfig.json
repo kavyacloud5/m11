@@ -11,8 +11,7 @@
     ],
     "skipLibCheck": true,
     "types": [
-      "node",
-      "@supabase/supabase-js"
+      "node"
     ],
     "typeRoots": [
       "./node_modules/@types",
@@ -31,5 +30,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src", "vite-env.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "vite-env.d.ts"],
+  "exclude": ["node_modules", "my-app-backend/node_modules"],
 }

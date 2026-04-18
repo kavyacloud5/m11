@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, Calendar as CalendarIcon, MapPin } from 'lucide-react';
-import { getEvents } from '../services/data';
-import { Event } from '../types';
+import { getEvents } from '../../services/data';
+import { Event } from '../../types';
 
 const CalendarPage: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
