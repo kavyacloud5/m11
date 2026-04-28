@@ -3,6 +3,7 @@ import {
   Exhibition,
   Artwork,
   Event,
+  EventRegistration,
   Booking,
   ShopOrder,
   PageAssets,
@@ -38,6 +39,7 @@ const STORAGE_KEYS = {
   EXHIBITIONS: 'MOCA_EXHIBITIONS',
   ARTWORKS: 'MOCA_ARTWORKS',
   EVENTS: 'MOCA_EVENTS',
+  EVENT_REGISTRATIONS: 'MOCA_EVENT_REGISTRATIONS',
   REVIEWS: 'MOCA_REVIEWS',
   PAGE_ASSETS: 'MOCA_ASSETS',
   BOOKINGS: 'MOCA_BOOKINGS',
@@ -77,9 +79,17 @@ const apiRequest = async (
   endpoint: string,
   options: RequestInit = {}
 ) => {
+  const adminApiKey = (import.meta as any)?.env
+    ?.VITE_ADMIN_API_KEY as string | undefined;
+  const staffMode =
+    localStorage.getItem('MOCA_STAFF_MODE') === 'true';
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(adminApiKey && staffMode
+        ? { 'x-admin-key': adminApiKey }
+        : {}),
       ...options.headers,
     },
     ...options,
@@ -169,18 +179,53 @@ const syncDelete = async (
 /* ================================
    CONNECTION STATUS
 ================================ */
-export const checkDatabaseConnection = () => ({
-  isConnected: Boolean(envBackendUrl && envBackendUrl.trim().length > 0),
-  mode:
+export const checkDatabaseConnection = async () => {
+  const url =
     envBackendUrl && envBackendUrl.trim().length > 0
-      ? 'REMOTE API'
-      : 'LOCAL ONLY',
-  url:
-    envBackendUrl && envBackendUrl.trim().length > 0
-      ? envBackendUrl
-      : 'localStorage',
-  timestamp: Date.now(),
-});
+      ? envBackendUrl.replace(/\/$/, '')
+      : undefined;
+
+  if (!url) {
+    return {
+      isConnected: false,
+      mode: 'LOCAL ONLY',
+      url: 'localStorage',
+      latencyMs: null as number | null,
+      timestamp: Date.now(),
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  const start = performance.now();
+
+  try {
+    const resp = await fetch(`${url}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    const latencyMs = Math.round(performance.now() - start);
+    const ok = resp.ok;
+    return {
+      isConnected: ok,
+      mode: ok ? 'REMOTE API' : 'REMOTE API (ERROR)',
+      url,
+      latencyMs,
+      timestamp: Date.now(),
+    };
+  } catch (_err) {
+    const latencyMs = Math.round(performance.now() - start);
+    return {
+      isConnected: false,
+      mode: 'REMOTE API (DOWN)',
+      url,
+      latencyMs,
+      timestamp: Date.now(),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 /* ================================
    INITIAL BOOTSTRAP
@@ -243,6 +288,26 @@ export const getPageAssets = () =>
     DEFAULT_ASSETS
   );
 
+export const savePageAssets = async (
+  assets: PageAssets
+) => {
+  const original = getLocal<PageAssets>(
+    STORAGE_KEYS.PAGE_ASSETS,
+    DEFAULT_ASSETS
+  );
+  setLocal(STORAGE_KEYS.PAGE_ASSETS, assets);
+
+  try {
+    await apiRequest('/page-assets', {
+      method: 'POST',
+      body: JSON.stringify(assets),
+    });
+  } catch (error) {
+    console.error('[API WRITE] /page-assets', error);
+    setLocal(STORAGE_KEYS.PAGE_ASSETS, original);
+  }
+};
+
 export const getExhibitions = () =>
   syncGet<Exhibition[]>(
     '/exhibitions',
@@ -285,12 +350,130 @@ export const deleteCollectable = (id: string) =>
     id
   );
 
-export const getEvents = () =>
-  syncGet<Event[]>(
-    '/events',
-    STORAGE_KEYS.EVENTS,
-    []
+const normalizeEvent = (raw: any): Event => ({
+  id: String(raw?.id ?? ''),
+  title: String(raw?.title ?? ''),
+  type: String(raw?.type ?? ''),
+  date: String(raw?.date ?? ''),
+  location: String(raw?.location ?? ''),
+  imageUrl: String(raw?.imageUrl ?? raw?.image_url ?? ''),
+  description:
+    typeof raw?.description === 'string'
+      ? raw.description
+      : undefined,
+});
+
+export const getEvents = async () => {
+  try {
+    const data = await apiRequest('/events');
+    const normalized = Array.isArray(data)
+      ? data.map(normalizeEvent)
+      : [];
+    setLocal(STORAGE_KEYS.EVENTS, normalized, false);
+    return normalized;
+  } catch (error) {
+    console.warn('[API FALLBACK] /events', error);
+    return getLocal<Event[]>(STORAGE_KEYS.EVENTS, []);
+  }
+};
+
+export const saveEvent = (e: Event) =>
+  syncUpsert('/events', STORAGE_KEYS.EVENTS, e);
+
+export const deleteEvent = (id: string) =>
+  syncDelete('/events', STORAGE_KEYS.EVENTS, id);
+
+export const getEventRegistrations = () =>
+  (async () => {
+    const normalize = (raw: any): EventRegistration => ({
+      id: String(raw?.id ?? ''),
+      eventId: String(raw?.eventId ?? raw?.event_id ?? ''),
+      eventTitle: String(
+        raw?.eventTitle ?? raw?.event_title ?? ''
+      ),
+      name: String(raw?.name ?? ''),
+      email: String(raw?.email ?? ''),
+      phone:
+        typeof raw?.phone === 'string' && raw.phone.trim()
+          ? raw.phone
+          : undefined,
+      quantity: Number(raw?.quantity ?? 1),
+      timestamp: Number(raw?.timestamp ?? Date.now()),
+      status:
+        (raw?.status as EventRegistration['status']) ??
+        'Pending',
+    });
+
+    try {
+      const data = await apiRequest(
+        '/event-registrations'
+      );
+      const normalized = Array.isArray(data)
+        ? data.map(normalize)
+        : [];
+      setLocal(
+        STORAGE_KEYS.EVENT_REGISTRATIONS,
+        normalized,
+        false
+      );
+      return normalized;
+    } catch (error) {
+      console.warn(
+        '[API FALLBACK] /event-registrations',
+        error
+      );
+      return getLocal<EventRegistration[]>(
+        STORAGE_KEYS.EVENT_REGISTRATIONS,
+        []
+      );
+    }
+  })();
+
+export const saveEventRegistration = (
+  r: EventRegistration
+) =>
+  syncUpsert(
+    '/event-registrations',
+    STORAGE_KEYS.EVENT_REGISTRATIONS,
+    r
   );
+
+export const updateEventRegistrationStatus =
+  async (
+    id: string,
+    status: EventRegistration['status']
+  ) => {
+    const originalList =
+      getLocal<EventRegistration[]>(
+        STORAGE_KEYS.EVENT_REGISTRATIONS,
+        []
+      );
+    setLocal(
+      STORAGE_KEYS.EVENT_REGISTRATIONS,
+      originalList.map((r) =>
+        r.id === id ? { ...r, status } : r
+      )
+    );
+
+    try {
+      await apiRequest(
+        `/event-registrations/${id}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        }
+      );
+    } catch (error) {
+      console.error(
+        '[API WRITE] /event-registrations/:id/status',
+        error
+      );
+      setLocal(
+        STORAGE_KEYS.EVENT_REGISTRATIONS,
+        originalList
+      );
+    }
+  };
 
 export const getBookings = () =>
   syncGet<Booking[]>(

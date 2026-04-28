@@ -41,6 +41,19 @@ CREATE TABLE IF NOT EXISTS events (
   description TEXT
 );
 
+-- Event registrations table
+CREATE TABLE IF NOT EXISTS event_registrations (
+  id VARCHAR(255) PRIMARY KEY,
+  event_id VARCHAR(255) NOT NULL,
+  event_title VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
+  quantity INTEGER DEFAULT 1,
+  timestamp BIGINT NOT NULL,
+  status VARCHAR(50) DEFAULT 'Pending'
+);
+
 -- Collectables table
 CREATE TABLE IF NOT EXISTS collectables (
   id VARCHAR(255) PRIMARY KEY,
@@ -95,6 +108,12 @@ CREATE TABLE IF NOT EXISTS press_releases (
   summary TEXT,
   url VARCHAR(500),
   file_name VARCHAR(255)
+);
+
+-- Page assets (singleton JSON)
+CREATE TABLE IF NOT EXISTS page_assets (
+  id VARCHAR(255) PRIMARY KEY,
+  data JSONB NOT NULL
 );
 
 -- Create indexes for better performance

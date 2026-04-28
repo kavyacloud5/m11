@@ -19,11 +19,15 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="font-bold mb-4 uppercase text-xs tracking-widest">Services</h4>
             <ul className="space-y-3 text-sm text-gray-600">
+              <li><Link to="/about" className="hover:text-black">About</Link></li>
               <li><Link to="/shop" className="hover:text-black">MOCA Shop</Link></li>
               <li><Link to="/booking" className="hover:text-black">Book Tickets</Link></li>
               <li><Link to="/order-status" className="hover:text-black">Track Order</Link></li>
+              <li><Link to="/events" className="hover:text-black">Events</Link></li>
               <li><Link to="/gallery" className="hover:text-black">Gallery</Link></li>
-              <li><Link to="/testimonies" className="hover:text-black">Video Testimonies</Link></li>
+              <li><Link to="/membership" className="hover:text-black">Membership</Link></li>
+              <li><Link to="/volunteer" className="hover:text-black">Volunteer</Link></li>
+              <li><Link to="/intern" className="hover:text-black">Internship</Link></li>
               <li className="pt-2 border-t border-gray-200 mt-4">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Press &amp; Media</p>
                 <Link to="/press" className="hover:text-black text-sm">

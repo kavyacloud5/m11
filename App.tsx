@@ -13,7 +13,13 @@ import OrderStatusPage from './components/OrderStatusPage';
 import AdminPage from './components/AdminPage';
 import PressPage from './components/PressPage';
 import GalleryPage from './components/GalleryPage';
-import VideoTestimonialsPage from './components/VideoTestimonialsPage';
+import CalendarPage from './components/CalendarPage';
+import EventRegistrationPage from './components/EventRegistrationPage';
+import AboutPage from './components/AboutPage';
+import CollectionPage from './components/CollectionPage';
+import MembershipPage from './components/MembershipPage';
+import VolunteerPage from './components/VolunteerPage';
+import InternPage from './components/InternPage';
 import MuseumGalleryScroll from './components/MuseumGalleryScroll';
 import CuratorChat from './components/CuratorChat';
 import { DataProvider } from './services/DataContext';
@@ -48,9 +54,15 @@ const Layout: React.FC = () => {
                   <Route path="/order-status" element={<OrderStatusPage />} />
                   <Route path="/booking" element={<BookingPage />} />
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/collection" element={<CollectionPage />} />
+                  <Route path="/membership" element={<MembershipPage />} />
                   <Route path="/press" element={<PressPage />} />
                   <Route path="/gallery" element={<GalleryPage />} />
-                  <Route path="/testimonies" element={<VideoTestimonialsPage />} />
+                  <Route path="/events" element={<CalendarPage />} />
+                  <Route path="/events/:eventId/register" element={<EventRegistrationPage />} />
+                  <Route path="/volunteer" element={<VolunteerPage />} />
+                  <Route path="/intern" element={<InternPage />} />
               </Routes>
             </main>
             <Footer />

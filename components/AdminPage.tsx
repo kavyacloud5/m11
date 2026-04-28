@@ -9,14 +9,27 @@ import {
 } from 'lucide-react';
 import { 
     getCollectables, deleteCollectable, saveCollectable,
+    getEvents, saveEvent, deleteEvent,
+    getEventRegistrations, updateEventRegistrationStatus,
     getBookings, getShopOrders, updateOrderStatus,
     getDashboardAnalytics, checkDatabaseConnection,
+    getPageAssets, savePageAssets,
     getGalleryImages, saveGalleryImage, deleteGalleryImage,
     getPressReleases, savePressRelease, deletePressRelease
 } from '../services/data';
-import { Collectable, Booking, ShopOrder, GalleryImage, PressRelease } from '../types';
+import { Collectable, Event, EventRegistration, Booking, ShopOrder, GalleryImage, PressRelease, PageAssets } from '../types';
 
-type Tab = 'analytics' | 'orders' | 'bookings' | 'inventory' | 'system' | 'gallery' | 'press';
+type Tab =
+  | 'analytics'
+  | 'orders'
+  | 'bookings'
+  | 'events'
+  | 'registrations'
+  | 'pages'
+  | 'inventory'
+  | 'system'
+  | 'gallery'
+  | 'press';
 
 const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -26,6 +39,10 @@ const AdminPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<any>(null);
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+  const [pageAssets, setPageAssets] = useState<PageAssets | null>(null);
+  const [editAssets, setEditAssets] = useState<PageAssets | null>(null);
   const [inventory, setInventory] = useState<Collectable[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [pressReleases, setPressReleases] = useState<PressRelease[]>([]);
@@ -36,11 +53,55 @@ const AdminPage: React.FC = () => {
   const [editItem, setEditItem] = useState<any>(null); // Can be Collectable or GalleryImage
   const [editGalleryImage, setEditGalleryImage] = useState<GalleryImage | null>(null);
   const [editPressRelease, setEditPressRelease] = useState<PressRelease | null>(null);
+  const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  
- const refreshDbStatus = useCallback(() => {
-  const status = checkDatabaseConnection();
+
+  const tabMeta: Record<Tab, { title: string; subtitle: string }> = {
+    analytics: {
+      title: 'Analytics',
+      subtitle: 'Live operational data from the MOCA system.',
+    },
+    orders: {
+      title: 'Shop Orders',
+      subtitle: 'Fulfillment status and payments.',
+    },
+    bookings: {
+      title: 'Ticket Registry',
+      subtitle: 'Museum entry bookings and visit dates.',
+    },
+    events: {
+      title: 'Events',
+      subtitle: 'Public listings shown on the Events page.',
+    },
+    registrations: {
+      title: 'Event Registrations',
+      subtitle: 'Inbound registrations from the Events page.',
+    },
+    pages: {
+      title: 'Pages',
+      subtitle: 'Edit homepage and page content blocks.',
+    },
+    inventory: {
+      title: 'Products',
+      subtitle: 'Shop inventory and pricing.',
+    },
+    gallery: {
+      title: 'Gallery',
+      subtitle: 'Homepage gallery images.',
+    },
+    press: {
+      title: 'Press',
+      subtitle: 'Press releases and media links.',
+    },
+    system: {
+      title: 'System',
+      subtitle: 'Connectivity, schema, and diagnostics.',
+    },
+  };
+
+ const refreshDbStatus = useCallback(async () => {
+  const status = await checkDatabaseConnection();
   setDbStatus(status);
 }, []);
 
@@ -58,16 +119,31 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [isAuthenticated, refreshDbStatus]);
 
+useEffect(() => {
+  if (pageAssets) setEditAssets(pageAssets);
+}, [pageAssets]);
+
 
   const fetchAdminData = async () => {
       setLoading(true);
       try {
-          const [stats, ord, bks, inv, gallery, press] = await Promise.all([
-              getDashboardAnalytics(), getShopOrders(), getBookings(), getCollectables(), getGalleryImages(), getPressReleases()
+          const [stats, ord, bks, evs, regs, assets, inv, gallery, press] = await Promise.all([
+              getDashboardAnalytics(),
+              getShopOrders(),
+              getBookings(),
+              getEvents(),
+              getEventRegistrations(),
+              getPageAssets(),
+              getCollectables(),
+              getGalleryImages(),
+              getPressReleases()
       ]);
       setAnalytics(stats);
       setOrders(ord);
       setBookings(bks);
+      setEvents(evs);
+      setRegistrations(regs);
+      setPageAssets(assets);
       setInventory(inv);
           setGalleryImages(gallery);
           setPressReleases(press);
@@ -124,6 +200,23 @@ useEffect(() => {
       setIsSyncing(false);
   };
 
+  const handleSaveEvent = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editEvent) return;
+      setIsSyncing(true);
+      await saveEvent(editEvent);
+      setEditEvent(null);
+      fetchAdminData();
+      setIsSyncing(false);
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+      setIsSyncing(true);
+      await deleteEvent(id);
+      fetchAdminData();
+      setIsSyncing(false);
+  };
+
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
         alert("Please upload an image file.");
@@ -163,9 +256,12 @@ useEffect(() => {
   const sqlSchema = `-- Run this in your PostgreSQL (Neon) SQL editor:
 CREATE TABLE IF NOT EXISTS collectables (id TEXT PRIMARY KEY, name TEXT, price NUMERIC, category TEXT, imageUrl TEXT, description TEXT, inStock BOOLEAN, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS exhibitions (id TEXT PRIMARY KEY, title TEXT, dateRange TEXT, description TEXT, imageUrl TEXT, category TEXT);
+CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, title TEXT, type TEXT, date TEXT, location TEXT, imageUrl TEXT, description TEXT);
+CREATE TABLE IF NOT EXISTS event_registrations (id TEXT PRIMARY KEY, eventId TEXT, eventTitle TEXT, name TEXT, email TEXT, phone TEXT, quantity INTEGER, timestamp BIGINT, status TEXT);
 CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, customerName TEXT, email TEXT, date TEXT, tickets JSONB, totalAmount NUMERIC, timestamp BIGINT, status TEXT);
 CREATE TABLE IF NOT EXISTS shop_orders (id TEXT PRIMARY KEY, customerName TEXT, email TEXT, items JSONB, totalAmount NUMERIC, timestamp BIGINT, status TEXT);
 CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, itemId TEXT, itemType TEXT, userName TEXT, rating INTEGER, comment TEXT, timestamp BIGINT);
+CREATE TABLE IF NOT EXISTS page_assets (id TEXT PRIMARY KEY, data JSONB);
 CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date TEXT, summary TEXT, url TEXT, timestamp BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000);`;
 
   const copySql = () => {
@@ -206,6 +302,9 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                    { id: 'analytics', icon: TrendingUp, label: 'Analytics' },
                    { id: 'orders', icon: ShoppingBag, label: 'Shop Orders' },
                    { id: 'bookings', icon: Calendar, label: 'Ticket Registry' },
+                   { id: 'events', icon: Activity, label: 'Events' },
+                   { id: 'registrations', icon: Users, label: 'Event Registrations' },
+                   { id: 'pages', icon: Globe, label: 'Pages' },
                    { id: 'inventory', icon: Tag, label: 'Products' },
                    { id: 'gallery', icon: ImageIcon, label: 'Gallery' },
                    { id: 'press', icon: Info, label: 'Press' },
@@ -248,7 +347,7 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                            <div className="flex-grow">
                                <h4 className="text-sm font-black uppercase tracking-widest text-amber-900 mb-1">Local Mirror Mode Active</h4>
                                <p className="text-xs text-amber-700 leading-relaxed mb-4">
-                                   Your changes are currently saved <b>only on this device</b>. To sync your products and orders to your phone or other staff members, you must connect a Supabase database.
+                                   Your changes are currently saved <b>only on this device</b>. To sync products, events, and registrations across staff devices, configure a backend API (Render) + Postgres (Neon) using <code>VITE_BACKEND_URL</code>.
                                </p>
                                <button 
                                 onClick={() => setActiveTab('system')}
@@ -263,8 +362,20 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                    {/* Header Row */}
                    <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-end">
                        <div>
-                           <h2 className="text-4xl font-black tracking-tighter uppercase">{activeTab}</h2>
-                           <p className="text-sm text-gray-400">Live operational data from the MOCA servers.</p>
+                           <div className="flex items-center gap-3">
+                               <h2 className="text-4xl font-black tracking-tighter uppercase">{tabMeta[activeTab].title}</h2>
+                               {dbStatus && (
+                                   <span
+                                       className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                           dbStatus.isConnected ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                                       }`}
+                                   >
+                                       <span className={`w-2 h-2 rounded-full ${dbStatus.isConnected ? 'bg-green-600' : 'bg-amber-600'}`} />
+                                       {dbStatus.isConnected ? 'Live' : 'Local'}
+                                   </span>
+                               )}
+                           </div>
+                           <p className="text-sm text-gray-400">{tabMeta[activeTab].subtitle}</p>
                        </div>
                        <div className="flex items-center gap-4">
                            <button onClick={fetchAdminData} className="p-2 bg-white border border-gray-100 rounded-lg hover:shadow-md transition-all"><RefreshCw className="w-4 h-4" /></button>
@@ -295,6 +406,9 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                                         </p>
                                         <div className="text-[9px] font-mono text-gray-400 break-all bg-white/50 p-2 rounded">
                                             ENDPOINT: {dbStatus?.url}
+                                            {typeof dbStatus?.latencyMs === 'number' && (
+                                              <span>{` • LATENCY: ${dbStatus.latencyMs}ms`}</span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -480,6 +594,358 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                                    ))}
                                </tbody>
                            </table>
+                           </div>
+                       </div>
+                   )}
+
+                   {activeTab === 'events' && (
+                       <div className="space-y-8">
+                           <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                                   <div>
+                                       <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                                           <Activity className="w-5 h-5" /> Events
+                                       </h3>
+                                       <p className="text-xs text-gray-500 mt-1">
+                                           Add, update, and remove public events shown on the Events page.
+                                       </p>
+                                   </div>
+                                   <button
+                                       onClick={() =>
+                                           setEditEvent({
+                                               id: `event-${Date.now()}`,
+                                               title: '',
+                                               type: 'Talk',
+                                               date: new Date().toISOString().slice(0, 10),
+                                               location: '',
+                                               imageUrl: '',
+                                               description: '',
+                                           })
+                                       }
+                                       className="bg-black text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-gray-800"
+                                   >
+                                       <Plus className="w-4 h-4" /> Add Event
+                                   </button>
+                               </div>
+
+                               <div className="space-y-4">
+                                   {events.map((event) => (
+                                       <div
+                                           key={event.id}
+                                           className="border border-gray-100 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:bg-gray-50 transition-colors"
+                                       >
+                                           <div className="flex items-center gap-4">
+                                               <div className="w-16 h-16 rounded-2xl bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
+                                                   {event.imageUrl ? (
+                                                       <img
+                                                           src={event.imageUrl}
+                                                           alt={event.title}
+                                                           className="w-full h-full object-cover"
+                                                       />
+                                                   ) : (
+                                                       <div className="w-full h-full flex items-center justify-center text-[9px] font-black uppercase tracking-widest text-gray-300">
+                                                           No Image
+                                                       </div>
+                                                   )}
+                                               </div>
+                                               <div className="space-y-1">
+                                                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                       {event.date}
+                                                   </p>
+                                                   <div className="flex items-center gap-2">
+                                                       <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">
+                                                           {event.type}
+                                                       </span>
+                                                       <h4 className="text-base md:text-lg font-bold">
+                                                           {event.title}
+                                                       </h4>
+                                                   </div>
+                                                   {event.location && (
+                                                       <p className="text-xs text-gray-500">
+                                                           {event.location}
+                                                       </p>
+                                                   )}
+                                               </div>
+                                           </div>
+
+                                           <div className="flex items-center gap-2 md:justify-end">
+                                               <button
+                                                   onClick={() => setEditEvent(event)}
+                                                   className="bg-gray-50 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-black hover:text-white transition-all"
+                                               >
+                                                   Edit
+                                               </button>
+                                               <button
+                                                   onClick={() => handleDeleteEvent(event.id)}
+                                                   className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                                               >
+                                                   <Trash className="w-4 h-4" />
+                                               </button>
+                                           </div>
+                                       </div>
+                                   ))}
+
+                                   {events.length === 0 && (
+                                       <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-3xl">
+                                           <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                               No events yet
+                                           </p>
+                                       </div>
+                                   )}
+                               </div>
+                           </div>
+                       </div>
+                   )}
+
+                   {activeTab === 'registrations' && (
+                       <div className="bg-white border border-gray-100 rounded-[2.5rem] overflow-hidden">
+                           <div className="overflow-x-auto">
+                               <table className="w-full min-w-[900px] text-left">
+                                   <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400">
+                                       <tr>
+                                           <th className="p-6">Time</th>
+                                           <th className="p-6">Event</th>
+                                           <th className="p-6">Name</th>
+                                           <th className="p-6">Contact</th>
+                                           <th className="p-6">Qty</th>
+                                           <th className="p-6">Status</th>
+                                           <th className="p-6 text-right">Actions</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody className="divide-y divide-gray-50">
+                                       {registrations.map((r) => (
+                                           <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                                               <td className="p-6">
+                                                   <p className="text-[10px] font-mono font-bold text-gray-500">
+                                                       {new Date(r.timestamp).toLocaleString()}
+                                                   </p>
+                                               </td>
+                                               <td className="p-6">
+                                                   <p className="text-sm font-bold">{r.eventTitle}</p>
+                                                   <p className="text-[10px] text-gray-400 font-mono">{r.eventId}</p>
+                                               </td>
+                                               <td className="p-6">
+                                                   <p className="text-sm font-bold">{r.name}</p>
+                                               </td>
+                                               <td className="p-6">
+                                                   <p className="text-[11px] text-gray-600">{r.email}</p>
+                                                   {r.phone && <p className="text-[10px] text-gray-400">{r.phone}</p>}
+                                               </td>
+                                               <td className="p-6 font-black">{r.quantity}</td>
+                                               <td className="p-6">
+                                                   <span
+                                                       className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                                           r.status === 'Confirmed'
+                                                               ? 'bg-green-100 text-green-700'
+                                                               : r.status === 'Cancelled'
+                                                                 ? 'bg-red-100 text-red-700'
+                                                                 : 'bg-amber-100 text-amber-700'
+                                                       }`}
+                                                   >
+                                                       {r.status}
+                                                   </span>
+                                               </td>
+                                               <td className="p-6 text-right space-x-2">
+                                                   <button
+                                                       onClick={() => updateEventRegistrationStatus(r.id, 'Confirmed').then(fetchAdminData)}
+                                                       className="text-[10px] font-black uppercase tracking-widest text-green-700 hover:text-black transition-colors"
+                                                   >
+                                                       Confirm
+                                                   </button>
+                                                   <button
+                                                       onClick={() => updateEventRegistrationStatus(r.id, 'Cancelled').then(fetchAdminData)}
+                                                       className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-black transition-colors"
+                                                   >
+                                                       Cancel
+                                                   </button>
+                                               </td>
+                                           </tr>
+                                       ))}
+                                       {registrations.length === 0 && (
+                                           <tr>
+                                               <td className="p-10 text-center text-xs text-gray-400 font-bold uppercase tracking-widest" colSpan={7}>
+                                                   No registrations yet.
+                                               </td>
+                                           </tr>
+                                       )}
+                                   </tbody>
+                               </table>
+                           </div>
+                       </div>
+                   )}
+
+                   {activeTab === 'pages' && (
+                       <div className="space-y-8">
+                           <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
+                               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                                   <div>
+                                       <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                                           <Globe className="w-5 h-5" /> Page Content
+                                       </h3>
+                                       <p className="text-xs text-gray-500 mt-1">
+                                           Changes apply site-wide. Use image URLs for hero backgrounds.
+                                       </p>
+                                   </div>
+                                   <button
+                                       disabled={!editAssets || isSyncing}
+                                       onClick={async () => {
+                                           if (!editAssets) return;
+                                           setIsSyncing(true);
+                                           await savePageAssets(editAssets);
+                                           await fetchAdminData();
+                                           setIsSyncing(false);
+                                       }}
+                                       className="bg-black text-white px-5 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                   >
+                                       {isSyncing ? <RefreshCw className="animate-spin w-4 h-4" /> : <Check className="w-4 h-4" />} Save Changes
+                                   </button>
+                               </div>
+
+                               {!editAssets ? (
+                                   <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-3xl">
+                                       <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                           Loading page assets…
+                                       </p>
+                                   </div>
+                               ) : (
+                                   <div className="grid lg:grid-cols-12 gap-10">
+                                       <div className="lg:col-span-6 space-y-8">
+                                           <div>
+                                               <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                                                   Home
+                                               </h4>
+                                               <div className="space-y-2">
+                                                   <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Hero Background URL</label>
+                                                   <input
+                                                       className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                       value={editAssets.home.heroBg || ''}
+                                                       onChange={(e) =>
+                                                           setEditAssets({
+                                                               ...editAssets,
+                                                               home: { ...editAssets.home, heroBg: e.target.value },
+                                                           })
+                                                       }
+                                                   />
+                                               </div>
+                                           </div>
+
+                                           <div>
+                                               <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                                                   Visit
+                                               </h4>
+                                               <div className="space-y-4">
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Hours</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.visit.hours}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   visit: { ...editAssets.visit, hours: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Location Text</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.visit.locationText}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   visit: { ...editAssets.visit, locationText: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Google Maps Link</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.visit.googleMapsLink}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   visit: { ...editAssets.visit, googleMapsLink: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                               </div>
+                                           </div>
+                                       </div>
+
+                                       <div className="lg:col-span-6 space-y-8">
+                                           <div>
+                                               <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                                                   About
+                                               </h4>
+                                               <div className="space-y-4">
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Page Title</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.about.title}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   about: { ...editAssets.about, title: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Hero Image URL</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.about.hero}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   about: { ...editAssets.about, hero: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                                   <div className="space-y-2">
+                                                       <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Atrium Image URL</label>
+                                                       <input
+                                                           className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                           value={editAssets.about.atrium}
+                                                           onChange={(e) =>
+                                                               setEditAssets({
+                                                                   ...editAssets,
+                                                                   about: { ...editAssets.about, atrium: e.target.value },
+                                                               })
+                                                           }
+                                                       />
+                                                   </div>
+                                               </div>
+                                           </div>
+
+                                           <div>
+                                               <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                                                   Membership
+                                               </h4>
+                                               <div className="space-y-2">
+                                                   <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Hero Image URL</label>
+                                                   <input
+                                                       className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                                       value={editAssets.membership.hero}
+                                                       onChange={(e) =>
+                                                           setEditAssets({
+                                                               ...editAssets,
+                                                               membership: { ...editAssets.membership, hero: e.target.value },
+                                                           })
+                                                       }
+                                                   />
+                                               </div>
+                                           </div>
+                                       </div>
+                                   </div>
+                               )}
                            </div>
                        </div>
                    )}
@@ -881,6 +1347,95 @@ CREATE TABLE IF NOT EXISTS press_releases (id TEXT PRIMARY KEY, title TEXT, date
                        >
                            {isSyncing ? <RefreshCw className="animate-spin w-5 h-5" /> : <Check className="w-5 h-5" />}{' '}
                            Save Press Release
+                       </button>
+                   </form>
+               </div>
+           </div>
+       )}
+
+       {editEvent && (
+           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-6 overflow-y-auto">
+               <div className="bg-white max-w-lg w-full rounded-[2.5rem] p-10 md:p-12 animate-in zoom-in-95 duration-300 my-8">
+                   <div className="flex justify-between items-center mb-10">
+                       <h3 className="text-2xl font-black uppercase tracking-tighter">Event</h3>
+                       <button onClick={() => setEditEvent(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                           <X className="w-6 h-6" />
+                       </button>
+                   </div>
+
+                   <form onSubmit={handleSaveEvent} className="space-y-6">
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Title</label>
+                           <input
+                               required
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               value={editEvent.title}
+                               onChange={(e) => setEditEvent({ ...(editEvent as Event), title: e.target.value })}
+                           />
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                               <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Type</label>
+                               <select
+                                   className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                   value={editEvent.type}
+                                   onChange={(e) => setEditEvent({ ...(editEvent as Event), type: e.target.value })}
+                               >
+                                   <option>Talk</option>
+                                   <option>Workshop</option>
+                                   <option>Film</option>
+                                   <option>Tour</option>
+                                   <option>Exhibition</option>
+                               </select>
+                           </div>
+                           <div className="space-y-2">
+                               <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Date</label>
+                               <input
+                                   type="date"
+                                   required
+                                   className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                                   value={editEvent.date}
+                                   onChange={(e) => setEditEvent({ ...(editEvent as Event), date: e.target.value })}
+                               />
+                           </div>
+                       </div>
+
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Location</label>
+                           <input
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               value={editEvent.location}
+                               onChange={(e) => setEditEvent({ ...(editEvent as Event), location: e.target.value })}
+                               placeholder="Atrium / Theatre / Address..."
+                           />
+                       </div>
+
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Image URL</label>
+                           <input
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black"
+                               value={editEvent.imageUrl}
+                               onChange={(e) => setEditEvent({ ...(editEvent as Event), imageUrl: e.target.value })}
+                               placeholder="https://..."
+                           />
+                       </div>
+
+                       <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Description</label>
+                           <textarea
+                               className="w-full border-2 border-gray-100 p-4 rounded-xl font-bold outline-none focus:border-black min-h-[110px]"
+                               value={editEvent.description || ''}
+                               onChange={(e) => setEditEvent({ ...(editEvent as Event), description: e.target.value })}
+                           />
+                       </div>
+
+                       <button
+                           type="submit"
+                           disabled={isSyncing}
+                           className="w-full bg-black text-white py-5 rounded-xl font-black uppercase tracking-widest hover:bg-gray-800 transition-all flex items-center justify-center gap-3 shadow-xl"
+                       >
+                           {isSyncing ? <RefreshCw className="animate-spin w-5 h-5" /> : <Check className="w-5 h-5" />} Save Event
                        </button>
                    </form>
                </div>

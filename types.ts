@@ -27,6 +27,18 @@ export interface Event {
   description?: string;
 }
 
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  name: string;
+  email: string;
+  phone?: string;
+  quantity: number;
+  timestamp: number;
+  status: 'Pending' | 'Confirmed' | 'Cancelled';
+}
+
 export interface Collectable {
   id: string;
   name: string;

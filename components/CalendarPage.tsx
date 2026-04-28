@@ -66,8 +66,11 @@ const CalendarPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex items-center justify-end">
-                        <Link to="/booking" className="bg-black text-white px-6 py-2 rounded-full text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300">
-                            Book Now
+                        <Link
+                          to={`/events/${event.id}/register`}
+                          className="bg-black text-white px-6 py-2 rounded-full text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300"
+                        >
+                          Register
                         </Link>
                     </div>
                 </div>

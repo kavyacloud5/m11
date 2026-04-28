@@ -94,6 +94,67 @@ router.get('/events', async (req, res) => {
   }
 });
 
+// POST /api/data/events
+router.post('/events', authMiddleware, async (req, res) => {
+  try {
+    const { id, title, type, date, location, imageUrl, description } = req.body;
+    await executeQuery(
+      'INSERT INTO events (id, title, type, date, location, image_url, description) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, type = EXCLUDED.type, date = EXCLUDED.date, location = EXCLUDED.location, image_url = EXCLUDED.image_url, description = EXCLUDED.description',
+      [id, title, type, date, location, imageUrl, description]
+    );
+    res.json({ message: 'Event saved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving event' });
+  }
+});
+
+// DELETE /api/data/events/:id
+router.delete('/events/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await executeQuery('DELETE FROM events WHERE id = $1', [id]);
+    res.json({ message: 'Event deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting event' });
+  }
+});
+
+// GET /api/data/event-registrations
+router.get('/event-registrations', async (req, res) => {
+  try {
+    const result = await executeQuery('SELECT * FROM event_registrations ORDER BY timestamp DESC');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching event registrations' });
+  }
+});
+
+// POST /api/data/event-registrations
+router.post('/event-registrations', async (req, res) => {
+  try {
+    const { id, eventId, eventTitle, name, email, phone, quantity, timestamp, status } = req.body;
+    await executeQuery(
+      'INSERT INTO event_registrations (id, event_id, event_title, name, email, phone, quantity, timestamp, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO UPDATE SET event_id = EXCLUDED.event_id, event_title = EXCLUDED.event_title, name = EXCLUDED.name, email = EXCLUDED.email, phone = EXCLUDED.phone, quantity = EXCLUDED.quantity, timestamp = EXCLUDED.timestamp, status = EXCLUDED.status',
+      [id, eventId, eventTitle, name, email, phone, quantity, timestamp, status]
+    );
+    res.json({ message: 'Registration saved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving registration' });
+  }
+});
+
+// PATCH /api/data/event-registrations/:id/status
+router.patch('/event-registrations/:id/status', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    await executeQuery('UPDATE event_registrations SET status = $1 WHERE id = $2', [status, id]);
+    res.json({ message: 'Registration status updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating registration status' });
+  }
+});
+
 // GET /api/data/bookings
 router.get('/bookings', async (req, res) => {
   try {
@@ -201,6 +262,31 @@ router.get('/press-releases', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching press releases' });
+  }
+});
+
+// GET /api/data/page-assets
+router.get('/page-assets', async (req, res) => {
+  try {
+    const result = await executeQuery('SELECT data FROM page_assets WHERE id = $1', ['default']);
+    const row = result.rows[0];
+    res.json(row ? row.data : {});
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching page assets' });
+  }
+});
+
+// POST /api/data/page-assets
+router.post('/page-assets', authMiddleware, async (req, res) => {
+  try {
+    const data = req.body;
+    await executeQuery(
+      'INSERT INTO page_assets (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+      ['default', JSON.stringify(data)]
+    );
+    res.json({ message: 'Page assets saved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving page assets' });
   }
 });
 

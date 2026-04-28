@@ -144,7 +144,7 @@ const AboutPage: React.FC = () => {
         <div className="border-t border-black pt-16 text-center">
             <h2 className="text-4xl font-bold mb-6">Be Part of Our Story</h2>
             <div className="flex justify-center gap-4">
-                <Link to="/visit" className="bg-black text-white px-8 py-4 font-bold hover:bg-gray-800 transition-colors">
+                <Link to="/booking" className="bg-black text-white px-8 py-4 font-bold hover:bg-gray-800 transition-colors">
                     Plan Your Visit
                 </Link>
                 <Link to="/collection" className="border-2 border-black px-8 py-4 font-bold hover:bg-black hover:text-white transition-colors">

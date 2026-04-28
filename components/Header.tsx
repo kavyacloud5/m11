@@ -15,8 +15,15 @@ const Header: React.FC = () => {
   const { collectables } = useMuseumData();
 
   const navLinks = [
+    { name: 'About', path: '/about' },
+    { name: 'Events', path: '/events' },
+    { name: 'Gallery', path: '/gallery' },
     { name: 'Shop', path: '/shop' },
     { name: 'Tickets', path: '/booking' },
+    { name: 'Membership', path: '/membership' },
+    { name: 'Press', path: '/press' },
+    { name: 'Volunteer', path: '/volunteer' },
+    { name: 'Intern', path: '/intern' },
   ];
 
   useEffect(() => {
@@ -33,9 +40,16 @@ const Header: React.FC = () => {
     const results = [];
 
     const pages = [
+      { title: 'About', path: '/about', type: 'Page' },
+      { title: 'Events', path: '/events', type: 'Page' },
+      { title: 'Gallery', path: '/gallery', type: 'Page' },
       { title: 'MOCA Collectables', path: '/shop', type: 'Page' },
       { title: 'Book Tickets', path: '/booking', type: 'Page' },
       { title: 'Track Order', path: '/order-status', type: 'Page' },
+      { title: 'Membership', path: '/membership', type: 'Page' },
+      { title: 'Press', path: '/press', type: 'Page' },
+      { title: 'Volunteer', path: '/volunteer', type: 'Page' },
+      { title: 'Internship', path: '/intern', type: 'Page' },
     ];
     pages.forEach(page => {
       if (page.title.toLowerCase().includes(query)) results.push(page);
